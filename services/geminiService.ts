@@ -1,8 +1,9 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { BudgetItem } from "../types";
+import { BudgetItem, AIAnalysisResponse, SPJRecommendation } from "../types";
 
-export async function analyzeBudget(items: BudgetItem[], totalBudget: number) {
+// Fix: Added explicit return type Promise<AIAnalysisResponse | null>
+export async function analyzeBudget(items: BudgetItem[], totalBudget: number): Promise<AIAnalysisResponse | null> {
   // Always initialize GoogleGenAI inside the function to use the latest API key from process.env
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
@@ -54,7 +55,8 @@ export async function analyzeBudget(items: BudgetItem[], totalBudget: number) {
   }
 }
 
-export async function getSPJRecommendations(item: BudgetItem) {
+// Fix: Added explicit return type Promise<SPJRecommendation | null>
+export async function getSPJRecommendations(item: BudgetItem): Promise<SPJRecommendation | null> {
   // Always initialize GoogleGenAI inside the function to use the latest API key from process.env
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
