@@ -1,38 +1,82 @@
 
 import { BudgetItem } from "../types";
-
-const STORAGE_KEYS = {
-  ITEMS: 'rkas_items',
-  SCHOOL_DATA: 'rkas_school_data',
-  PAGU: 'rkas_total_pagu',
-  STUDENTS: 'rkas_student_count'
-};
+import { supabase, isSupabaseConfigured } from "./supabaseClient";
 
 export const storageService = {
-  // Load All Data
-  loadAll() {
-    return {
-      items: JSON.parse(localStorage.getItem(STORAGE_KEYS.ITEMS) || '[]'),
-      schoolData: JSON.parse(localStorage.getItem(STORAGE_KEYS.SCHOOL_DATA) || 'null'),
-      totalPagu: Number(localStorage.getItem(STORAGE_KEYS.PAGU)) || 150000000,
-      studentCount: Number(localStorage.getItem(STORAGE_KEYS.STUDENTS)) || 450
-    };
+  // Load All Data from Supabase
+  async loadAll() {
+    if (!isSupabaseConfigured || !supabase) {
+      console.warn("Supabase is not configured. Returning default data.");
+      return { items: [], schoolData: null, totalPagu: 150000000, studentCount: 450 };
+    }
+
+    try {
+      const { data: settings } = await supabase
+        .from('school_settings')
+        .select('*')
+        .single();
+
+      const { data: items } = await supabase
+        .from('budget_items')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      return {
+        items: items || [],
+        schoolData: settings ? {
+          name: settings.name,
+          npsn: settings.npsn,
+          address: settings.address
+        } : null,
+        totalPagu: settings?.total_pagu || 150000000,
+        studentCount: settings?.student_count || 450
+      };
+    } catch (error) {
+      console.error("Error loading data from Supabase:", error);
+      return { items: [], schoolData: null, totalPagu: 150000000, studentCount: 450 };
+    }
   },
 
-  // Save specific datasets
-  saveItems(items: BudgetItem[]) {
-    localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(items));
+  // Sync School Settings
+  async saveSettings(name: string, npsn: string, address: string, pagu: number, students: number) {
+    if (!supabase) return;
+    const { error } = await supabase
+      .from('school_settings')
+      .upsert({ 
+        id: 1, 
+        name, 
+        npsn, 
+        address, 
+        total_pagu: pagu, 
+        student_count: students 
+      });
+    if (error) console.error("Error saving settings:", error);
   },
 
-  saveSchoolData(data: any) {
-    localStorage.setItem(STORAGE_KEYS.SCHOOL_DATA, JSON.stringify(data));
+  // Individual Item Operations
+  async addItem(item: BudgetItem) {
+    if (!supabase) return;
+    const { error } = await supabase
+      .from('budget_items')
+      .insert([item]);
+    if (error) console.error("Error adding item:", error);
   },
 
-  savePagu(val: number) {
-    localStorage.setItem(STORAGE_KEYS.PAGU, val.toString());
+  async updateItem(item: BudgetItem) {
+    if (!supabase) return;
+    const { error } = await supabase
+      .from('budget_items')
+      .update(item)
+      .eq('id', item.id);
+    if (error) console.error("Error updating item:", error);
   },
 
-  saveStudents(val: number) {
-    localStorage.setItem(STORAGE_KEYS.STUDENTS, val.toString());
+  async deleteItem(id: string) {
+    if (!supabase) return;
+    const { error } = await supabase
+      .from('budget_items')
+      .delete()
+      .eq('id', id);
+    if (error) console.error("Error deleting item:", error);
   }
 };
