@@ -19,24 +19,15 @@ import {
   School, 
   Users, 
   Save, 
-  Database, 
   RefreshCw, 
-  AlertTriangle, 
   Info, 
-  Copy, 
-  Terminal,
-  Search,
-  ArrowUpRight,
-  PieChart as PieIcon,
-  BarChart as BarIcon,
   Calendar,
-  Download,
-  MapPin,
   ShieldCheck,
   FileCheck,
   ArrowLeft,
-  Filter,
-  Layers
+  Layers,
+  BarChart3,
+  PieChart as PieIconLucide
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -48,9 +39,7 @@ import {
   Tooltip, 
   PieChart, 
   Pie, 
-  Cell,
-  BarChart,
-  Bar
+  Cell
 } from 'recharts';
 import { SNP, BudgetItem, AIAnalysisResponse, SPJRecommendation, EvidenceItem } from './types';
 import { analyzeBudget, getSPJRecommendations } from './services/geminiService';
@@ -92,9 +81,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      if (scrollRef.current) {
-        setIsScrolled(scrollRef.current.scrollTop > 20);
-      }
+      if (scrollRef.current) setIsScrolled(scrollRef.current.scrollTop > 20);
     };
     const currentRef = scrollRef.current;
     currentRef?.addEventListener('scroll', handleScroll);
@@ -103,27 +90,18 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const initLoad = async () => {
-      if (!isSupabaseConfigured) {
-        setDbStatus('error');
-      } else {
-        setDbStatus('syncing');
-      }
-      
+      setDbStatus(isSupabaseConfigured ? 'syncing' : 'error');
       const data = await storageService.loadAll();
       setItems(data.items);
       if (data.schoolData) setSchoolData(data.schoolData);
       setTotalPagu(data.totalPagu);
       setStudentCount(data.studentCount);
       
-      const savedSPJs = localStorage.getItem('rkas_active_spjs_v2');
+      const savedSPJs = localStorage.getItem('rkas_active_spjs_v3');
       if (savedSPJs) {
-        try {
-          setActiveSPJs(JSON.parse(savedSPJs));
-        } catch (e) {
-          console.error("Failed to parse SPJs", e);
-        }
+        try { setActiveSPJs(JSON.parse(savedSPJs)); } 
+        catch (e) { console.error("Parse SPJ failed", e); }
       }
-
       setIsLoaded(true);
       if (isSupabaseConfigured) setDbStatus('connected');
     };
@@ -131,27 +109,21 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('rkas_active_spjs_v2', JSON.stringify(activeSPJs));
-    }
+    if (isLoaded) localStorage.setItem('rkas_active_spjs_v3', JSON.stringify(activeSPJs));
   }, [activeSPJs, isLoaded]);
 
   const totalSpent = useMemo(() => items.reduce((acc, item) => acc + item.total, 0), [items]);
   const usagePercentage = useMemo(() => Math.round((totalSpent / totalPagu) * 100) || 0, [totalSpent, totalPagu]);
 
-  const chartData = useMemo(() => {
-    return MONTHS.map(month => ({
-      name: month.substring(0, 3),
-      total: items.filter(i => i.month === month).reduce((acc, curr) => acc + curr.total, 0)
-    }));
-  }, [items]);
+  const chartData = useMemo(() => MONTHS.map(month => ({
+    name: month.substring(0, 3),
+    total: items.filter(i => i.month === month).reduce((acc, curr) => acc + curr.total, 0)
+  })), [items]);
 
-  const snpData = useMemo(() => {
-    return Object.values(SNP).map(snp => ({
-      name: snp.split(' ')[1] || snp,
-      value: items.filter(i => i.category === snp).reduce((acc, curr) => acc + curr.total, 0)
-    })).filter(d => d.value > 0);
-  }, [items]);
+  const snpData = useMemo(() => Object.values(SNP).map(snp => ({
+    name: snp.split(' ')[1] || snp,
+    value: items.filter(i => i.category === snp).reduce((acc, curr) => acc + curr.total, 0)
+  })).filter(d => d.value > 0), [items]);
 
   const handleAddItem = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -187,18 +159,19 @@ const App: React.FC = () => {
   };
 
   const removeItem = async (id: string) => {
-    if (confirm('Hapus data ini?')) {
+    if (confirm('Hapus item anggaran?')) {
       if (isSupabaseConfigured) {
         setDbStatus('syncing');
         await storageService.deleteItem(id);
         setDbStatus('connected');
       }
       setItems(prev => prev.filter(item => item.id !== id));
-      // Cleanup associated SPJ
       if (activeSPJs[id]) {
-        const newSPJs = { ...activeSPJs };
-        delete newSPJs[id];
-        setActiveSPJs(newSPJs);
+        setActiveSPJs(prev => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
       }
     }
   };
@@ -209,37 +182,37 @@ const App: React.FC = () => {
         setIsLinkingModalOpen(false);
         return;
     }
-
     setIsGeneratingSPJ(true);
     setIsLinkingModalOpen(false);
     
     const recommendation = await getSPJRecommendations(item);
     if (recommendation) {
-        setActiveSPJs(prev => ({
-            ...prev,
-            [item.id]: {
-                ...recommendation,
-                activityId: item.id
-            }
-        }));
+        setActiveSPJs(prev => {
+          const next: Record<string, SPJRecommendation> = { ...prev };
+          next[item.id] = { ...recommendation, activityId: item.id };
+          return next;
+        });
         setSelectedSPJId(item.id);
     } else {
-        alert("Gagal menghubungi AI. Periksa koneksi atau API Key Anda.");
+        alert("AI Gemini sedang sibuk. Silakan coba beberapa saat lagi.");
     }
     setIsGeneratingSPJ(false);
   };
 
   const toggleChecklistItem = (activityId: string, evidenceId: string) => {
     setActiveSPJs(prev => {
-        const spj = prev[activityId];
+        const next: Record<string, SPJRecommendation> = { ...prev };
+        const spj = next[activityId];
         if (!spj) return prev;
-        const updatedChecklist = spj.checklist.map(ev => 
-            ev.id === evidenceId ? { ...ev, status: ev.status === 'ready' ? 'pending' : 'ready' } : ev
+        
+        const updatedChecklist: EvidenceItem[] = spj.checklist.map(ev => 
+            ev.id === evidenceId 
+              ? { ...ev, status: (ev.status === 'ready' ? 'pending' : 'ready') as 'pending' | 'ready' } 
+              : ev
         );
-        return {
-            ...prev,
-            [activityId]: { ...spj, checklist: updatedChecklist }
-        };
+        
+        next[activityId] = { ...spj, checklist: updatedChecklist };
+        return next;
     });
   };
 
@@ -250,22 +223,12 @@ const App: React.FC = () => {
     return Math.round((ready / spj.checklist.length) * 100);
   };
 
-  // Fixed the missing runAIAnalysis function by defining it here
   const runAIAnalysis = async () => {
-    if (items.length === 0) {
-      alert("Tambahkan item perencanaan terlebih dahulu sebelum melakukan audit AI.");
-      return;
-    }
+    if (items.length === 0) return alert("Belum ada data perencanaan.");
     setIsAnalyzing(true);
-    try {
-      const result = await analyzeBudget(items, totalPagu);
-      setAiAnalysis(result);
-    } catch (error) {
-      console.error("AI Analysis failed:", error);
-      alert("Gagal memproses analisis AI. Silakan coba beberapa saat lagi.");
-    } finally {
-      setIsAnalyzing(false);
-    }
+    const result = await analyzeBudget(items, totalPagu);
+    if (result) setAiAnalysis(result);
+    setIsAnalyzing(false);
   };
 
   const formatIDR = (val: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
@@ -273,7 +236,7 @@ const App: React.FC = () => {
   if (!isLoaded) return (
     <div className="h-screen flex flex-col items-center justify-center bg-slate-950 text-white">
       <Loader2 size={48} className="animate-spin text-indigo-500 mb-4" />
-      <h2 className="text-xl font-black tracking-widest uppercase animate-pulse">Memuat Cloud RKAS...</h2>
+      <h2 className="text-xl font-black tracking-widest uppercase animate-pulse">Sinkronisasi Cloud...</h2>
     </div>
   );
 
@@ -283,12 +246,12 @@ const App: React.FC = () => {
       <aside className="w-full lg:w-80 bg-slate-950 text-slate-300 flex flex-col lg:sticky lg:top-0 h-auto lg:h-screen z-50 no-print transition-all duration-500">
         <div className="p-10">
           <div className="flex items-center gap-4 mb-16 group">
-            <div className="bg-indigo-600 p-3 rounded-2xl shadow-2xl shadow-indigo-500/40 rotate-3 group-hover:rotate-0 transition-transform">
+            <div className="bg-indigo-600 p-3 rounded-2xl shadow-xl shadow-indigo-500/20 rotate-3 group-hover:rotate-0 transition-transform">
               <ClipboardList className="text-white w-7 h-7" />
             </div>
             <div>
               <h1 className="text-2xl font-black text-white leading-none tracking-tight">RKAS<span className="text-indigo-500">Pintar</span></h1>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">BOSP Intelligent System</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Sistem Cerdas BOSP</p>
             </div>
           </div>
           <nav className="space-y-3">
@@ -298,15 +261,15 @@ const App: React.FC = () => {
               { id: 'analysis', icon: BrainCircuit, label: 'Audit AI' },
               { id: 'spj', icon: Receipt, label: 'SPJ Digital' },
               { id: 'settings', icon: Settings, label: 'Konfigurasi' },
-            ].map((item) => (
+            ].map((nav) => (
               <button 
-                key={item.id}
-                onClick={() => setActiveTab(item.id as any)}
-                className={`w-full flex items-center gap-4 px-6 py-4 rounded-[22px] transition-all duration-500 group ${activeTab === item.id ? 'sidebar-item-active' : 'hover:bg-white/5 hover:text-white'}`}
+                key={nav.id}
+                onClick={() => setActiveTab(nav.id as any)}
+                className={`w-full flex items-center gap-4 px-6 py-4 rounded-[22px] transition-all duration-500 group ${activeTab === nav.id ? 'sidebar-item-active' : 'hover:bg-white/5 hover:text-white'}`}
               >
-                <item.icon size={20} className={activeTab === item.id ? 'text-indigo-600' : 'group-hover:text-indigo-400'} />
-                <span className="font-bold text-sm tracking-wide">{item.label}</span>
-                {activeTab === item.id && <ChevronRight size={14} className="ml-auto opacity-50" />}
+                <nav.icon size={20} className={activeTab === nav.id ? 'text-indigo-600' : 'group-hover:text-indigo-400'} />
+                <span className="font-bold text-sm tracking-wide">{nav.label}</span>
+                {activeTab === nav.id && <ChevronRight size={14} className="ml-auto opacity-50" />}
               </button>
             ))}
           </nav>
@@ -315,14 +278,14 @@ const App: React.FC = () => {
           <div className={`p-5 rounded-[28px] border flex items-center gap-4 transition-all duration-700 ${dbStatus === 'syncing' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : dbStatus === 'error' ? 'bg-rose-500/10 border-rose-500/20 text-rose-500' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'}`}>
             <div className={`w-3 h-3 rounded-full ${dbStatus === 'syncing' ? 'animate-spin border-t-2 border-current bg-transparent' : 'bg-current shadow-[0_0_10px_currentcolor]'}`}></div>
             <div className="flex flex-col">
-              <span className="text-[10px] font-black uppercase tracking-widest leading-none">Status Database</span>
-              <span className="text-[11px] font-bold opacity-70 mt-1">{dbStatus === 'syncing' ? 'Sinkronisasi...' : dbStatus === 'error' ? 'Lokal' : 'Cloud Aktif'}</span>
+              <span className="text-[10px] font-black uppercase tracking-widest leading-none">Database</span>
+              <span className="text-[11px] font-bold opacity-70 mt-1 uppercase tracking-tighter">{dbStatus}</span>
             </div>
           </div>
         </div>
       </aside>
 
-      {/* Main Area */}
+      {/* Main Content */}
       <main ref={scrollRef} className="flex-1 overflow-y-auto relative scroll-smooth">
         <header className={`sticky top-0 z-40 transition-all duration-500 ease-in-out px-6 lg:px-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-8 ${isScrolled ? 'py-4 glass-card shadow-lg bg-white/70 border-b border-slate-200/50' : 'py-8 lg:py-12 bg-transparent'}`}>
           <div>
@@ -342,6 +305,7 @@ const App: React.FC = () => {
 
         <div className="px-6 lg:px-12 pb-20 mt-6">
           <div className="animate-fade-in">
+            {/* Dashboard Tab */}
             {activeTab === 'dashboard' && (
               <div className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -352,20 +316,20 @@ const App: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                   <div className="lg:col-span-8 bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm overflow-hidden group">
-                    <div className="flex justify-between items-center mb-10"><h3 className="text-xl font-black text-slate-900">Alur Pengeluaran Bulanan</h3><BarIcon size={20} className="text-slate-400" /></div>
+                    <div className="flex justify-between items-center mb-10"><h3 className="text-xl font-black text-slate-900">Alur Pengeluaran</h3><BarChart3 size={20} className="text-slate-400" /></div>
                     <div className="h-[300px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                           <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
-                          <Tooltip contentStyle={{borderRadius: '15px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}} />
+                          <Tooltip contentStyle={{borderRadius: '15px', border: 'none'}} />
                           <Area type="monotone" dataKey="total" stroke="#6366f1" strokeWidth={4} fillOpacity={0.1} fill="#6366f1" />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
                   <div className="lg:col-span-4 bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm group">
-                     <div className="flex justify-between items-center mb-10"><h3 className="text-xl font-black">Distribusi SNP</h3><PieIcon size={20} className="text-slate-400" /></div>
+                     <div className="flex justify-between items-center mb-10"><h3 className="text-xl font-black">Distribusi SNP</h3><PieIconLucide size={20} className="text-slate-400" /></div>
                      <div className="h-[250px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -380,11 +344,12 @@ const App: React.FC = () => {
               </div>
             )}
 
+            {/* Planner Tab */}
             {activeTab === 'planner' && (
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
                 <div className="xl:col-span-5 space-y-8">
                   <div className="bg-white p-10 rounded-[48px] border border-slate-100 shadow-xl relative overflow-hidden group">
-                    <h3 className="text-3xl font-black text-slate-900 mb-10 flex items-center gap-4"><PlusCircle className="text-indigo-600" size={32} /> {editingItem ? 'Edit Item' : 'Tambah Anggaran'}</h3>
+                    <h3 className="text-3xl font-black text-slate-900 mb-10 flex items-center gap-4"><PlusCircle className="text-indigo-600" size={32} /> {editingItem ? 'Edit Item' : 'Tambah RKAS'}</h3>
                     <form onSubmit={handleAddItem} className="space-y-6">
                       <input name="name" defaultValue={editingItem?.name || ''} required className="w-full px-6 py-4 bg-slate-50 border border-transparent focus:border-indigo-100 rounded-2xl font-bold" placeholder="Nama Kegiatan" />
                       <div className="grid grid-cols-2 gap-4">
@@ -396,15 +361,15 @@ const App: React.FC = () => {
                         <input name="unit" defaultValue={editingItem?.unit || 'Unit'} className="w-full px-6 py-4 bg-slate-50 border border-transparent focus:border-indigo-100 rounded-2xl font-bold" />
                       </div>
                       <input name="price" type="number" defaultValue={editingItem?.price || ''} required className="w-full px-6 py-6 bg-indigo-50 border border-indigo-100 rounded-2xl text-2xl font-black text-indigo-600" placeholder="Harga Satuan" />
-                      <button type="submit" className="w-full bg-indigo-600 text-white font-black py-6 rounded-3xl shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 active:scale-95 duration-200"><Save size={24} /> Simpan Anggaran</button>
+                      <button type="submit" className="w-full bg-indigo-600 text-white font-black py-6 rounded-3xl shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 active:scale-95 duration-200"><Save size={24} /> Simpan Perencanaan</button>
                     </form>
                   </div>
                 </div>
                 <div className="xl:col-span-7 bg-white rounded-[48px] border border-slate-100 overflow-hidden shadow-sm flex flex-col">
-                  <div className="p-8 border-b bg-slate-50/20"><h3 className="text-2xl font-black">Daftar Perencanaan</h3></div>
+                  <div className="p-8 border-b bg-slate-50/20"><h3 className="text-2xl font-black">Histori Perencanaan</h3></div>
                   <div className="divide-y max-h-[700px] overflow-y-auto">
                     {items.length === 0 ? (
-                      <div className="p-20 text-center opacity-20 font-black uppercase tracking-widest text-sm">Belum ada perencanaan</div>
+                      <div className="p-20 text-center opacity-20 font-black uppercase text-sm">Belum ada data</div>
                     ) : items.map((item, idx) => (
                       <div key={item.id} className="p-8 flex justify-between items-center group hover:bg-slate-50 transition-all">
                         <div className="flex gap-6 items-center">
@@ -416,9 +381,9 @@ const App: React.FC = () => {
                               <p className="font-black text-lg">{formatIDR(item.total)}</p>
                               <p className="text-[10px] text-slate-400 font-bold uppercase">{item.quantity} {item.unit}</p>
                            </div>
-                           <div className="flex gap-1">
-                             <button onClick={() => setEditingItem(item)} className="p-2 text-indigo-400 hover:text-indigo-600 transition-colors"><Pencil size={18} /></button>
-                             <button onClick={() => removeItem(item.id)} className="p-2 text-rose-400 hover:text-rose-600 transition-colors"><Trash2 size={18} /></button>
+                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                             <button onClick={() => setEditingItem(item)} className="p-2 text-indigo-400 hover:text-indigo-600"><Pencil size={18} /></button>
+                             <button onClick={() => removeItem(item.id)} className="p-2 text-rose-400 hover:text-rose-600"><Trash2 size={18} /></button>
                            </div>
                         </div>
                       </div>
@@ -428,19 +393,20 @@ const App: React.FC = () => {
               </div>
             )}
 
+            {/* SPJ Tab */}
             {activeTab === 'spj' && (
               <div className="space-y-10 animate-fade-in">
                 {selectedSPJId && activeSPJs[selectedSPJId] ? (
                    <div className="space-y-8 pb-20">
                       <button onClick={() => setSelectedSPJId(null)} className="flex items-center gap-2 text-slate-400 hover:text-slate-900 font-bold text-sm transition-colors mb-6">
-                        <ArrowLeft size={16} /> Kembali ke Dashboard SPJ
+                        <ArrowLeft size={16} /> Kembali ke Pelaporan
                       </button>
 
                       <div className="bg-white p-12 rounded-[56px] border border-slate-100 shadow-xl relative overflow-hidden">
                          <div className="relative z-10">
                             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
                                <div>
-                                  <h3 className="text-3xl font-black text-slate-900 mb-2">{items.find(i => i.id === selectedSPJId)?.name || 'Data Tidak Ditemukan'}</h3>
+                                  <h3 className="text-3xl font-black text-slate-900 mb-2">{items.find(i => i.id === selectedSPJId)?.name || 'Detail SPJ'}</h3>
                                   <div className="flex items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
                                      <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg">{items.find(i => i.id === selectedSPJId)?.month}</span>
                                      <span>•</span>
@@ -448,7 +414,7 @@ const App: React.FC = () => {
                                   </div>
                                </div>
                                <div className="text-right">
-                                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Nilai Transaksi</p>
+                                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nilai Realisasi</p>
                                   <p className="text-3xl font-black text-indigo-600">{formatIDR(items.find(i => i.id === selectedSPJId)?.total || 0)}</p>
                                </div>
                             </div>
@@ -456,13 +422,13 @@ const App: React.FC = () => {
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
                                <div className="lg:col-span-8 space-y-8">
                                   <div className="flex justify-between items-center">
-                                     <h4 className="text-xl font-black flex items-center gap-3"><ClipboardList className="text-indigo-600" /> Dokumen Pendukung</h4>
+                                     <h4 className="text-xl font-black flex items-center gap-3"><ClipboardList className="text-indigo-600" /> Checklist Bukti Fisik</h4>
                                      <span className="text-[11px] font-black text-emerald-500 bg-emerald-50 px-4 py-1.5 rounded-full uppercase tracking-widest border border-emerald-100">
                                         Penyelesaian: {getSPJProgress(selectedSPJId)}%
                                      </span>
                                   </div>
                                   <div className="space-y-4">
-                                     {activeSPJs[selectedSPJId].checklist.map(evidence => (
+                                     {(activeSPJs[selectedSPJId].checklist || []).map(evidence => (
                                         <div 
                                           key={evidence.id} 
                                           onClick={() => toggleChecklistItem(selectedSPJId, evidence.id)}
@@ -485,10 +451,10 @@ const App: React.FC = () => {
                                <div className="lg:col-span-4 space-y-8">
                                   <div className="p-8 bg-slate-900 rounded-[40px] text-white">
                                      <h4 className="font-black text-lg mb-4 flex items-center gap-2 text-indigo-400"><ShieldCheck size={20} /> Dasar Hukum</h4>
-                                     <p className="text-xs leading-relaxed text-slate-400 font-medium italic">"{activeSPJs[selectedSPJId].legalBasis}"</p>
+                                     <p className="text-xs leading-relaxed text-slate-400 font-medium italic">"{activeSPJs[selectedSPJId].legalBasis || 'Ketentuan Juknis BOSP terbaru.'}"</p>
                                      <div className="mt-8 pt-8 border-t border-white/10">
                                         <h4 className="font-black text-sm mb-4 text-amber-400 flex items-center gap-2"><Sparkles size={16} /> Insight AI Audit</h4>
-                                        <p className="text-xs text-slate-400 leading-relaxed font-bold">{activeSPJs[selectedSPJId].tips}</p>
+                                        <p className="text-xs text-slate-400 leading-relaxed font-bold">{activeSPJs[selectedSPJId].tips || 'Pastikan semua bukti memiliki stempel basah.'}</p>
                                      </div>
                                   </div>
                                </div>
@@ -501,11 +467,11 @@ const App: React.FC = () => {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                        <div>
                           <h3 className="text-3xl font-black text-slate-900">Manajemen SPJ Digital</h3>
-                          <p className="text-sm text-slate-400 font-bold mt-1">Gunakan AI untuk generate checklist bukti fisik BOSP yang akurat.</p>
+                          <p className="text-sm text-slate-400 font-bold mt-1">Generate checklist bukti fisik berbasis AI Gemini.</p>
                        </div>
                        <button 
                         onClick={() => setIsLinkingModalOpen(true)}
-                        className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[24px] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 flex items-center gap-3 transition-all active:scale-95"
+                        className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[24px] font-black text-xs uppercase tracking-[0.2em] shadow-xl flex items-center gap-3 transition-all active:scale-95"
                        >
                           <Layers size={18} /> Buat SPJ dari RKAS
                        </button>
@@ -514,7 +480,7 @@ const App: React.FC = () => {
                     {isGeneratingSPJ && (
                       <div className="bg-indigo-50 p-12 rounded-[40px] border border-indigo-100 flex flex-col items-center justify-center animate-pulse">
                          <Loader2 className="animate-spin text-indigo-600 mb-4" size={48} />
-                         <p className="font-black text-indigo-900 uppercase tracking-widest text-sm text-center">AI Gemini sedang menyusun <br/> rekomendasi checklist bukti fisik...</p>
+                         <p className="font-black text-indigo-900 uppercase tracking-widest text-sm text-center">Menyusun Rekomendasi Checklist...</p>
                       </div>
                     )}
 
@@ -527,7 +493,7 @@ const App: React.FC = () => {
                             <div 
                               key={itemId} 
                               onClick={() => setSelectedSPJId(itemId)}
-                              className="bg-white p-8 rounded-[48px] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-2 transition-all duration-500 cursor-pointer group relative overflow-hidden"
+                              className="bg-white p-8 rounded-[48px] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-2 transition-all duration-500 cursor-pointer group"
                             >
                                <div className="flex justify-between items-start mb-8">
                                   <div className="p-4 bg-indigo-50 text-indigo-600 rounded-[24px] group-hover:scale-110 transition-transform">
@@ -543,19 +509,19 @@ const App: React.FC = () => {
                                
                                <div className="space-y-3">
                                   <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                                     <span className="text-slate-400 tracking-wider">Kelengkapan Bukti</span>
-                                     <span className="text-indigo-600 font-black">{getSPJProgress(itemId)}%</span>
+                                     <span className="text-slate-400">Progres Berkas</span>
+                                     <span className="text-indigo-600">{getSPJProgress(itemId)}%</span>
                                   </div>
-                                  <div className="w-full bg-slate-50 h-2 rounded-full overflow-hidden border border-slate-100">
+                                  <div className="w-full bg-slate-50 h-2 rounded-full overflow-hidden">
                                      <div 
-                                        className="bg-gradient-to-r from-indigo-500 to-indigo-400 h-full transition-all duration-1000"
+                                        className="bg-indigo-500 h-full transition-all duration-1000"
                                         style={{ width: `${getSPJProgress(itemId)}%` }}
                                      />
                                   </div>
                                </div>
 
                                <div className="mt-8 pt-8 border-t border-slate-50 flex items-center justify-between">
-                                  <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{spj.checklist?.length || 0} Syarat Dokumen</p>
+                                  <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{(spj.checklist || []).length} Dokumen</p>
                                   <ChevronRight size={16} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
                                </div>
                             </div>
@@ -564,28 +530,28 @@ const App: React.FC = () => {
                       ) : (
                         <div className="col-span-full py-40 text-center opacity-20 border-2 border-dashed border-slate-200 rounded-[60px]">
                            <Layers size={80} className="mx-auto mb-6" />
-                           <p className="font-black text-2xl uppercase tracking-widest">Belum Ada Pelaporan SPJ</p>
-                           <p className="text-xs font-bold uppercase mt-2">Pilih item dari perencanaan untuk memulai pelaporan</p>
+                           <p className="font-black text-2xl uppercase tracking-widest">Belum Ada SPJ Dibuat</p>
                         </div>
                       )}
                     </div>
                   </div>
                 )}
 
+                {/* Linking Modal */}
                 {isLinkingModalOpen && (
-                   <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md animate-fade-in">
+                   <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md">
                       <div className="bg-white w-full max-w-2xl rounded-[60px] p-12 shadow-2xl relative overflow-hidden max-h-[90vh] flex flex-col">
                          <div className="flex justify-between items-center mb-10 shrink-0">
                             <div>
                                <h3 className="text-2xl font-black">Pilih Anggaran RKAS</h3>
-                               <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Item yang siap dibuatkan pelaporannya</p>
+                               <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Item perencanaan yang akan dilaporkan</p>
                             </div>
-                            <button onClick={() => setIsLinkingModalOpen(false)} className="p-3 bg-slate-100 hover:bg-slate-200 rounded-2xl transition-all">
+                            <button onClick={() => setIsLinkingModalOpen(false)} className="p-3 bg-slate-100 hover:bg-slate-200 rounded-2xl">
                                <PlusCircle size={20} className="rotate-45" />
                             </button>
                          </div>
                          
-                         <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar flex-1">
+                         <div className="space-y-4 overflow-y-auto pr-2 flex-1">
                             {items.length > 0 ? (
                                items.map(item => (
                                   <div 
@@ -604,9 +570,7 @@ const App: React.FC = () => {
                                      </div>
                                      <div className="flex items-center gap-4">
                                         {activeSPJs[item.id] ? (
-                                          <div className="flex items-center gap-2 text-[9px] font-black text-indigo-500 uppercase tracking-tighter bg-white px-3 py-1.5 rounded-full border border-indigo-50">
-                                            <CheckCircle size={12} /> SPJ Aktif
-                                          </div>
+                                          <div className="text-[9px] font-black text-indigo-500 uppercase bg-white px-3 py-1.5 rounded-full border border-indigo-50">SPJ Aktif</div>
                                         ) : (
                                           <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">
                                             <PlusCircle size={18} />
@@ -625,12 +589,13 @@ const App: React.FC = () => {
               </div>
             )}
 
+            {/* Audit AI Tab */}
             {activeTab === 'analysis' && (
               <div className="max-w-5xl mx-auto space-y-10 animate-fade-in">
                 <div className="bg-white p-12 rounded-[60px] border border-slate-100 shadow-xl text-center">
                    <div className="inline-flex p-8 bg-indigo-50 text-indigo-600 rounded-[40px] mb-8"><BrainCircuit size={48} /></div>
                    <h3 className="text-4xl font-black text-slate-900 mb-4">Audit Efisiensi AI</h3>
-                   <p className="text-slate-400 font-bold max-w-lg mx-auto mb-10">Gunakan Gemini AI untuk memastikan penganggaran Anda sesuai dengan standar nasional pendidikan Indonesia.</p>
+                   <p className="text-slate-400 font-bold max-w-lg mx-auto mb-10">Gunakan Gemini AI untuk memastikan RKAS Anda sesuai standar nasional pendidikan.</p>
                    <button onClick={runAIAnalysis} disabled={isAnalyzing} className="px-12 py-5 bg-slate-900 text-white rounded-[32px] font-black uppercase text-xs tracking-[0.2em] shadow-2xl flex items-center gap-4 mx-auto hover:bg-indigo-600 transition-all active:scale-95">
                      {isAnalyzing ? <RefreshCw className="animate-spin" size={20} /> : <Sparkles size={20} />} {isAnalyzing ? "Menganalisis..." : "Jalankan Audit AI"}
                    </button>
@@ -638,7 +603,7 @@ const App: React.FC = () => {
                 {aiAnalysis && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade-in">
                     <div className="md:col-span-2 bg-white p-10 rounded-[48px] border border-slate-100 shadow-sm">
-                       <h4 className="text-2xl font-black mb-6 flex items-center gap-3"><Info className="text-indigo-600" /> Ringkasan Temuan</h4>
+                       <h4 className="text-2xl font-black mb-6 flex items-center gap-3"><Info className="text-indigo-600" /> Hasil Analisis</h4>
                        <p className="text-slate-600 leading-relaxed font-medium">{aiAnalysis.summary}</p>
                        <div className="mt-8 space-y-3">
                           {aiAnalysis.recommendations.map((rec, i) => (
@@ -652,27 +617,28 @@ const App: React.FC = () => {
                     <div className="bg-slate-950 p-10 rounded-[48px] text-white flex flex-col items-center justify-center">
                        <h4 className="text-xl font-black mb-10 uppercase tracking-widest text-slate-500">Profil Risiko</h4>
                        <div className={`text-7xl font-black mb-4 ${aiAnalysis.riskAssessment === 'Low' ? 'text-emerald-400' : aiAnalysis.riskAssessment === 'Medium' ? 'text-amber-400' : 'text-rose-400'}`}>{aiAnalysis.riskAssessment}</div>
-                       <p className="text-xs font-bold text-slate-500 uppercase">Status Keamanan Audit</p>
+                       <p className="text-xs font-bold text-slate-500 uppercase">Status Audit</p>
                     </div>
                   </div>
                 )}
               </div>
             )}
 
+            {/* Settings Tab */}
             {activeTab === 'settings' && (
               <div className="max-w-4xl mx-auto space-y-10 pb-20 animate-fade-in">
                 <div className="bg-white p-12 rounded-[56px] border border-slate-100 shadow-xl">
-                  <div className="flex items-center gap-5 mb-12"><div className="p-4 bg-indigo-50 text-indigo-600 rounded-[28px]"><Settings size={32} /></div><h3 className="text-3xl font-black text-slate-900 tracking-tight">Profil Satuan Pendidikan</h3></div>
+                  <div className="flex items-center gap-5 mb-12"><div className="p-4 bg-indigo-50 text-indigo-600 rounded-[28px]"><Settings size={32} /></div><h3 className="text-3xl font-black text-slate-900 tracking-tight">Profil Sekolah</h3></div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-                    <div className="space-y-2"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Sekolah</label><input value={schoolData.name} onChange={e => setSchoolData({...schoolData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-transparent border focus:bg-white focus:border-indigo-100 rounded-[24px] outline-none font-bold text-slate-800 transition-all" /></div>
+                    <div className="space-y-2"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Satdik</label><input value={schoolData.name} onChange={e => setSchoolData({...schoolData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-transparent border focus:bg-white focus:border-indigo-100 rounded-[24px] outline-none font-bold text-slate-800 transition-all" /></div>
                     <div className="space-y-2"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">NPSN</label><input value={schoolData.npsn} onChange={e => setSchoolData({...schoolData, npsn: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-transparent border focus:bg-white focus:border-indigo-100 rounded-[24px] outline-none font-bold text-slate-800 transition-all" /></div>
                   </div>
                   <div className="space-y-2 mb-10"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Alamat Kantor</label><textarea value={schoolData.address} onChange={e => setSchoolData({...schoolData, address: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-transparent border focus:bg-white focus:border-indigo-100 rounded-[24px] outline-none font-bold text-slate-800 transition-all h-24" /></div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                    <div className="space-y-2"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Pagu BOSP 2026 (IDR)</label><input type="number" value={totalPagu} onChange={e => setTotalPagu(Number(e.target.value))} className="w-full px-8 py-5 bg-indigo-50 border-transparent border focus:bg-white focus:border-indigo-200 rounded-[28px] outline-none text-xl font-black text-indigo-600 transition-all" /></div>
-                    <div className="space-y-2"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Total Peserta Didik</label><input type="number" value={studentCount} onChange={e => setStudentCount(Number(e.target.value))} className="w-full px-8 py-5 bg-slate-50 border-transparent border focus:bg-white focus:border-indigo-200 rounded-[28px] outline-none text-xl font-bold text-slate-800 transition-all" /></div>
+                    <div className="space-y-2"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Pagu BOSP 2026</label><input type="number" value={totalPagu} onChange={e => setTotalPagu(Number(e.target.value))} className="w-full px-8 py-5 bg-indigo-50 border-transparent border focus:bg-white focus:border-indigo-200 rounded-[28px] outline-none text-xl font-black text-indigo-600 transition-all" /></div>
+                    <div className="space-y-2"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Total Siswa</label><input type="number" value={studentCount} onChange={e => setStudentCount(Number(e.target.value))} className="w-full px-8 py-5 bg-slate-50 border-transparent border focus:bg-white focus:border-indigo-200 rounded-[28px] outline-none text-xl font-bold text-slate-800 transition-all" /></div>
                   </div>
-                  <button onClick={() => { storageService.saveSettings(schoolData.name, schoolData.npsn, schoolData.address, totalPagu, studentCount); alert('Tersimpan!'); }} className="w-full bg-indigo-600 text-white font-black py-6 rounded-[32px] hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-100 flex items-center justify-center gap-4 active:scale-95 duration-200"><Save size={24} /> Sinkronkan Perubahan</button>
+                  <button onClick={() => { storageService.saveSettings(schoolData.name, schoolData.npsn, schoolData.address, totalPagu, studentCount); alert('Tersimpan di Cloud!'); }} className="w-full bg-indigo-600 text-white font-black py-6 rounded-[32px] hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-100 flex items-center justify-center gap-4 active:scale-95 duration-200"><Save size={24} /> Sinkronisasi Profil</button>
                 </div>
               </div>
             )}

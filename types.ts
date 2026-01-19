@@ -20,7 +20,7 @@ export type BudgetItem = {
   price: number;
   total: number;
   source: string;
-  month: string; // Tambahan field bulan (e.g., "Januari", "Februari", dst)
+  month: string;
 };
 
 export type EvidenceItem = {
@@ -28,7 +28,7 @@ export type EvidenceItem = {
   label: string;
   description: string;
   required: boolean;
-  type: 'receipt' | 'photo' | 'signature' | 'tax' | 'doc';
+  type: string; // 'receipt' | 'photo' | 'signature' | 'tax' | 'doc'
   status?: 'pending' | 'ready';
 };
 

@@ -23,7 +23,10 @@ export async function analyzeBudget(items: BudgetItem[], totalBudget: number): P
           properties: {
             summary: { type: Type.STRING },
             recommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
-            riskAssessment: { type: Type.STRING }
+            riskAssessment: { 
+              type: Type.STRING,
+              description: "Must be exactly Low, Medium, or High"
+            }
           },
           required: ["summary", "recommendations", "riskAssessment"]
         }
@@ -41,13 +44,13 @@ export async function getSPJRecommendations(item: BudgetItem): Promise<SPJRecomm
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
-    Berikan checklist SPJ berdasarkan JUKNIS BOSP 2026 untuk kegiatan:
+    Bertindaklah sebagai ahli audit BOSP Kemdikbud.
+    Berikan checklist SPJ berdasarkan JUKNIS BOSP TERBARU untuk kegiatan:
     Nama: ${item.name}
     SNP: ${item.category}
     Nilai: Rp${item.total.toLocaleString('id-ID')}
     
-    Berikan JSON: activityId, legalBasis, tips, dan checklist (array: id, label, description, required, type).
-    Type: receipt, photo, signature, tax, doc.
+    Berikan JSON dengan schema yang disediakan. Checklist harus berisi minimal 4 dokumen wajib.
   `;
 
   try {
@@ -69,13 +72,13 @@ export async function getSPJRecommendations(item: BudgetItem): Promise<SPJRecomm
                   label: { type: Type.STRING },
                   description: { type: Type.STRING },
                   required: { type: Type.BOOLEAN },
-                  type: { type: Type.STRING }
+                  type: { type: Type.STRING, description: "receipt, photo, signature, tax, doc" }
                 },
                 required: ["id", "label", "description", "required", "type"]
               }
             },
-            legalBasis: { type: Type.STRING },
-            tips: { type: Type.STRING }
+            legalBasis: { type: Type.STRING, description: "Legal basis or regulation" },
+            tips: { type: Type.STRING, description: "Anti-audit finding tips" }
           },
           required: ["checklist", "legalBasis", "tips"]
         }
