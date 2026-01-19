@@ -188,9 +188,10 @@ const App: React.FC = () => {
     const recommendation = await getSPJRecommendations(item);
     if (recommendation) {
         setActiveSPJs(prev => {
-          const next: Record<string, SPJRecommendation> = { ...prev };
-          next[item.id] = { ...recommendation, activityId: item.id };
-          return next;
+          return {
+            ...prev,
+            [item.id]: { ...recommendation, activityId: item.id }
+          };
         });
         setSelectedSPJId(item.id);
     } else {
@@ -201,18 +202,21 @@ const App: React.FC = () => {
 
   const toggleChecklistItem = (activityId: string, evidenceId: string) => {
     setActiveSPJs(prev => {
-        const next: Record<string, SPJRecommendation> = { ...prev };
-        const spj = next[activityId];
+        const spj = prev[activityId];
         if (!spj) return prev;
         
-        const updatedChecklist: EvidenceItem[] = spj.checklist.map(ev => 
-            ev.id === evidenceId 
-              ? { ...ev, status: (ev.status === 'ready' ? 'pending' : 'ready') as 'pending' | 'ready' } 
-              : ev
-        );
+        const updatedChecklist: EvidenceItem[] = spj.checklist.map((ev): EvidenceItem => {
+          if (ev.id === evidenceId) {
+            const nextStatus: 'pending' | 'ready' = ev.status === 'ready' ? 'pending' : 'ready';
+            return { ...ev, status: nextStatus };
+          }
+          return ev;
+        });
         
-        next[activityId] = { ...spj, checklist: updatedChecklist };
-        return next;
+        return {
+          ...prev,
+          [activityId]: { ...spj, checklist: updatedChecklist }
+        };
     });
   };
 
