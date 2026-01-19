@@ -1,0 +1,46 @@
+
+export enum SNP {
+  Lulusan = "Standar Kompetensi Lulusan",
+  Isi = "Standar Isi",
+  Proses = "Standar Proses",
+  Penilaian = "Standar Penilaian",
+  Pendidik = "Standar Pendidik & Tendik",
+  Sarpras = "Standar Sarana & Prasarana",
+  Pengelolaan = "Standar Pengelolaan",
+  Pembiayaan = "Standar Pembiayaan"
+}
+
+export type BudgetItem = {
+  id: string;
+  name: string;
+  category: SNP;
+  accountCode: string;
+  quantity: number;
+  unit: string;
+  price: number;
+  total: number;
+  source: string;
+  month: string; // Tambahan field bulan (e.g., "Januari", "Februari", dst)
+};
+
+export type EvidenceItem = {
+  id: string;
+  label: string;
+  description: string;
+  required: boolean;
+  type: 'receipt' | 'photo' | 'signature' | 'tax' | 'doc';
+  status?: 'pending' | 'ready';
+};
+
+export type SPJRecommendation = {
+  activityId: string;
+  checklist: EvidenceItem[];
+  legalBasis: string;
+  tips: string;
+};
+
+export type AIAnalysisResponse = {
+  summary: string;
+  recommendations: string[];
+  riskAssessment: "Low" | "Medium" | "High";
+};
