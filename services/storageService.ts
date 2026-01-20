@@ -24,6 +24,7 @@ export const storageService = {
       console.error("Error loading from localStorage", e);
     }
 
+    // If Supabase is not configured, return local data immediately
     if (!isSupabaseConfigured || !supabase) {
       return { 
         items: localItems, 
@@ -34,19 +35,35 @@ export const storageService = {
     }
 
     try {
-      const { data: settings } = await supabase
+      // Fetch settings
+      const { data: settings, error: settingsError } = await supabase
         .from('school_settings')
         .select('*')
-        .single();
+        .limit(1)
+        .maybeSingle();
 
-      const { data: items } = await supabase
+      if (settingsError && settingsError.code !== 'PGRST116') {
+        console.warn("Could not fetch cloud settings:", settingsError.message);
+      }
+
+      // Fetch items
+      const { data: items, error: itemsError } = await supabase
         .from('budget_items')
         .select('*')
         .order('created_at', { ascending: true });
 
+      if (itemsError) {
+        console.warn("Could not fetch cloud items:", itemsError.message);
+      }
+
       // If we got cloud data, update local storage to stay in sync
-      if (items) localStorage.setItem(LOCAL_STORAGE_KEYS.ITEMS, JSON.stringify(items));
-      if (settings) localStorage.setItem(LOCAL_STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+      if (items && items.length > 0) {
+        localStorage.setItem(LOCAL_STORAGE_KEYS.ITEMS, JSON.stringify(items));
+      }
+      
+      if (settings) {
+        localStorage.setItem(LOCAL_STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+      }
 
       return {
         items: items || localItems,
@@ -59,7 +76,7 @@ export const storageService = {
         studentCount: settings?.student_count || localSettings?.student_count || 450
       };
     } catch (error) {
-      console.error("Error loading data from Supabase, using local fallback:", error);
+      console.error("Supabase load error, falling back to local:", error);
       return { 
         items: localItems, 
         schoolData: localSettings ? { name: localSettings.name, npsn: localSettings.npsn, address: localSettings.address } : null, 
@@ -79,40 +96,43 @@ export const storageService = {
       student_count: students 
     };
     
-    // Always save to LocalStorage
     localStorage.setItem(LOCAL_STORAGE_KEYS.SETTINGS, JSON.stringify(settingsObj));
 
     if (supabase) {
-      const { error } = await supabase
-        .from('school_settings')
-        .upsert({ id: 1, ...settingsObj });
-      if (error) console.error("Error saving settings to cloud:", error);
+      try {
+        const { error } = await supabase
+          .from('school_settings')
+          .upsert({ id: 1, ...settingsObj });
+        if (error) throw error;
+      } catch (error: any) {
+        console.error("Cloud save failed:", error.message);
+      }
     }
   },
 
-  // Update local storage items list
   _updateLocalItems(items: BudgetItem[]) {
     localStorage.setItem(LOCAL_STORAGE_KEYS.ITEMS, JSON.stringify(items));
   },
 
-  // Individual Item Operations
   async addItem(item: BudgetItem) {
-    // Get current local items and append
     const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.ITEMS);
     const items = saved ? JSON.parse(saved) : [];
     items.push(item);
     this._updateLocalItems(items);
 
     if (supabase) {
-      const { error } = await supabase
-        .from('budget_items')
-        .insert([item]);
-      if (error) console.error("Error adding item to cloud:", error);
+      try {
+        const { error } = await supabase
+          .from('budget_items')
+          .insert([item]);
+        if (error) throw error;
+      } catch (error: any) {
+        console.error("Cloud insert failed:", error.message);
+      }
     }
   },
 
   async updateItem(item: BudgetItem) {
-    // Update local storage
     const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.ITEMS);
     if (saved) {
       const items = JSON.parse(saved);
@@ -124,16 +144,19 @@ export const storageService = {
     }
 
     if (supabase) {
-      const { error } = await supabase
-        .from('budget_items')
-        .update(item)
-        .eq('id', item.id);
-      if (error) console.error("Error updating item on cloud:", error);
+      try {
+        const { error } = await supabase
+          .from('budget_items')
+          .update(item)
+          .eq('id', item.id);
+        if (error) throw error;
+      } catch (error: any) {
+        console.error("Cloud update failed:", error.message);
+      }
     }
   },
 
   async deleteItem(id: string) {
-    // Update local storage
     const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.ITEMS);
     if (saved) {
       const items = JSON.parse(saved);
@@ -142,11 +165,15 @@ export const storageService = {
     }
 
     if (supabase) {
-      const { error } = await supabase
-        .from('budget_items')
-        .delete()
-        .eq('id', id);
-      if (error) console.error("Error deleting item from cloud:", error);
+      try {
+        const { error } = await supabase
+          .from('budget_items')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
+      } catch (error: any) {
+        console.error("Cloud delete failed:", error.message);
+      }
     }
   }
 };
