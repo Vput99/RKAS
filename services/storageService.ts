@@ -8,12 +8,12 @@ const LOCAL_STORAGE_KEYS = {
 };
 
 export const storageService = {
-  // Load All Data with Fallback
+  // Load All Data with robust Fallback
   async loadAll() {
     let localItems: BudgetItem[] = [];
     let localSettings: any = null;
 
-    // Load from LocalStorage first (as cache/fallback)
+    // 1. Ambil dari LocalStorage sebagai cadangan utama
     try {
       const savedItems = localStorage.getItem(LOCAL_STORAGE_KEYS.ITEMS);
       if (savedItems) localItems = JSON.parse(savedItems);
@@ -21,10 +21,10 @@ export const storageService = {
       const savedSettings = localStorage.getItem(LOCAL_STORAGE_KEYS.SETTINGS);
       if (savedSettings) localSettings = JSON.parse(savedSettings);
     } catch (e) {
-      console.error("Error loading from localStorage", e);
+      console.error("Gagal membaca LocalStorage", e);
     }
 
-    // If Supabase is not configured, return local data immediately
+    // 2. Jika Supabase tidak aktif, langsung kembalikan data lokal
     if (!isSupabaseConfigured || !supabase) {
       return { 
         items: localItems, 
@@ -34,39 +34,29 @@ export const storageService = {
       };
     }
 
+    // 3. Jika Supabase aktif, coba sinkronkan
     try {
-      // Fetch settings
       const { data: settings, error: settingsError } = await supabase
         .from('school_settings')
         .select('*')
         .limit(1)
         .maybeSingle();
 
-      if (settingsError && settingsError.code !== 'PGRST116') {
-        console.warn("Could not fetch cloud settings:", settingsError.message);
-      }
-
-      // Fetch items
       const { data: items, error: itemsError } = await supabase
         .from('budget_items')
         .select('*')
         .order('created_at', { ascending: true });
 
-      if (itemsError) {
-        console.warn("Could not fetch cloud items:", itemsError.message);
-      }
-
-      // If we got cloud data, update local storage to stay in sync
+      // Jika cloud memiliki data, perbarui cache lokal
       if (items && items.length > 0) {
         localStorage.setItem(LOCAL_STORAGE_KEYS.ITEMS, JSON.stringify(items));
       }
-      
       if (settings) {
         localStorage.setItem(LOCAL_STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
       }
 
       return {
-        items: items || localItems,
+        items: (items && items.length > 0) ? items : localItems,
         schoolData: settings ? {
           name: settings.name,
           npsn: settings.npsn,
@@ -76,7 +66,7 @@ export const storageService = {
         studentCount: settings?.student_count || localSettings?.student_count || 450
       };
     } catch (error) {
-      console.error("Supabase load error, falling back to local:", error);
+      console.warn("Gagal sinkron Cloud, menggunakan data lokal:", error);
       return { 
         items: localItems, 
         schoolData: localSettings ? { name: localSettings.name, npsn: localSettings.npsn, address: localSettings.address } : null, 
@@ -86,49 +76,26 @@ export const storageService = {
     }
   },
 
-  // Sync School Settings
   async saveSettings(name: string, npsn: string, address: string, pagu: number, students: number) {
-    const settingsObj = { 
-      name, 
-      npsn, 
-      address, 
-      total_pagu: pagu, 
-      student_count: students 
-    };
-    
+    const settingsObj = { name, npsn, address, total_pagu: pagu, student_count: students };
     localStorage.setItem(LOCAL_STORAGE_KEYS.SETTINGS, JSON.stringify(settingsObj));
 
     if (supabase) {
       try {
-        const { error } = await supabase
-          .from('school_settings')
-          .upsert({ id: 1, ...settingsObj });
-        if (error) throw error;
-      } catch (error: any) {
-        console.error("Cloud save failed:", error.message);
-      }
+        await supabase.from('school_settings').upsert({ id: 1, ...settingsObj });
+      } catch (e) { console.error("Cloud settings save failed", e); }
     }
-  },
-
-  _updateLocalItems(items: BudgetItem[]) {
-    localStorage.setItem(LOCAL_STORAGE_KEYS.ITEMS, JSON.stringify(items));
   },
 
   async addItem(item: BudgetItem) {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.ITEMS);
     const items = saved ? JSON.parse(saved) : [];
     items.push(item);
-    this._updateLocalItems(items);
+    localStorage.setItem(LOCAL_STORAGE_KEYS.ITEMS, JSON.stringify(items));
 
     if (supabase) {
-      try {
-        const { error } = await supabase
-          .from('budget_items')
-          .insert([item]);
-        if (error) throw error;
-      } catch (error: any) {
-        console.error("Cloud insert failed:", error.message);
-      }
+      try { await supabase.from('budget_items').insert([item]); } 
+      catch (e) { console.error("Cloud insert failed", e); }
     }
   },
 
@@ -139,20 +106,13 @@ export const storageService = {
       const index = items.findIndex((i: BudgetItem) => i.id === item.id);
       if (index !== -1) {
         items[index] = item;
-        this._updateLocalItems(items);
+        localStorage.setItem(LOCAL_STORAGE_KEYS.ITEMS, JSON.stringify(items));
       }
     }
 
     if (supabase) {
-      try {
-        const { error } = await supabase
-          .from('budget_items')
-          .update(item)
-          .eq('id', item.id);
-        if (error) throw error;
-      } catch (error: any) {
-        console.error("Cloud update failed:", error.message);
-      }
+      try { await supabase.from('budget_items').update(item).eq('id', item.id); }
+      catch (e) { console.error("Cloud update failed", e); }
     }
   },
 
@@ -161,19 +121,12 @@ export const storageService = {
     if (saved) {
       const items = JSON.parse(saved);
       const filtered = items.filter((i: BudgetItem) => i.id !== id);
-      this._updateLocalItems(filtered);
+      localStorage.setItem(LOCAL_STORAGE_KEYS.ITEMS, JSON.stringify(filtered));
     }
 
     if (supabase) {
-      try {
-        const { error } = await supabase
-          .from('budget_items')
-          .delete()
-          .eq('id', id);
-        if (error) throw error;
-      } catch (error: any) {
-        console.error("Cloud delete failed:", error.message);
-      }
+      try { await supabase.from('budget_items').delete().eq('id', id); }
+      catch (e) { console.error("Cloud delete failed", e); }
     }
   }
 };

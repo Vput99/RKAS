@@ -138,7 +138,7 @@ const App: React.FC = () => {
     const initLoad = async () => {
       setDbStatus('syncing');
       const data = await storageService.loadAll();
-      setItems(data.items);
+      setItems(data.items || []);
       if (data.schoolData) setSchoolData(data.schoolData);
       setTotalPagu(data.totalPagu);
       setStudentCount(data.studentCount);
@@ -408,7 +408,7 @@ CREATE TABLE budget_items (
 
         <div className="px-6 lg:px-12 pb-20 mt-6">
           <div className="animate-fade-in">
-            {/* Dashboard, Planner, SPJ, Analysis tabs same as before... */}
+            {/* TAB: DASHBOARD */}
             {activeTab === 'dashboard' && (
               <div className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -417,84 +417,305 @@ CREATE TABLE budget_items (
                   <StatCard title="Sisa Anggaran" value={formatIDR(totalPagu - totalSpent)} icon={<Coins size={24} />} variant="success" trend="SURPLUS" />
                   <StatCard title="Target Siswa" value={`${studentCount}`} icon={<Users size={24} />} variant="primary" trend="DAPODIK" />
                 </div>
-                {/* Graphics same as before */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                  <div className="lg:col-span-8 bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm overflow-hidden group">
+                    <div className="flex justify-between items-center mb-10"><h3 className="text-xl font-black text-slate-900">Alur Pengeluaran</h3><BarChart3 size={20} className="text-slate-400" /></div>
+                    <div className="h-[300px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                          <Tooltip contentStyle={{borderRadius: '15px', border: 'none'}} />
+                          <Area type="monotone" dataKey="total" stroke="#6366f1" strokeWidth={4} fillOpacity={0.1} fill="#6366f1" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <div className="lg:col-span-4 bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm group">
+                     <div className="flex justify-between items-center mb-10"><h3 className="text-xl font-black">Distribusi SNP</h3><PieIconLucide size={20} className="text-slate-400" /></div>
+                     <div className="h-[250px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={snpData} innerRadius={60} outerRadius={80} paddingAngle={10} dataKey="value">
+                            {snpData.map((_, index) => <Cell key={`cell-${index}`} fill={SNP_COLORS[index % SNP_COLORS.length]} stroke="none" />)}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                     </div>
+                  </div>
+                </div>
               </div>
             )}
 
+            {/* TAB: PLANNER */}
             {activeTab === 'planner' && (
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
-                {/* Planner Form & List same as before */}
                 <div className="xl:col-span-5 space-y-8">
                   <div className="bg-white p-10 rounded-[48px] border border-slate-100 shadow-xl relative overflow-hidden group">
                     <h3 className="text-3xl font-black text-slate-900 mb-10 flex items-center gap-4"><PlusCircle className="text-indigo-600" size={32} /> {editingItem ? 'Edit Item' : 'Tambah RKAS'}</h3>
                     <form onSubmit={handleAddItem} className="space-y-8">
-                      {/* ... fields ... */}
+                      <div className="space-y-2">
+                        <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Bulan Anggaran</label>
+                        {!editingItem && (
+                          <div className="flex justify-end mb-2">
+                            <button type="button" onClick={() => setSelectedFormMonths(selectedFormMonths.length === 12 ? [] : [...MONTHS])} className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-widest">
+                              {selectedFormMonths.length === 12 ? 'Hapus Semua' : 'Pilih Semua Bulan'}
+                            </button>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                          {MONTHS.map(m => (
+                            <button key={m} type="button" onClick={() => toggleMonthSelection(m)} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all border ${selectedFormMonths.includes(m) ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200' : 'bg-slate-50 text-slate-400 border-transparent hover:border-slate-200'}`}>
+                              {m.substring(0, 3)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-6">
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Deskripsi Kegiatan</label>
+                          <input name="name" defaultValue={editingItem?.name || ''} required className="w-full px-6 py-4 bg-slate-50 border border-transparent focus:border-indigo-100 rounded-2xl font-bold" placeholder="Contoh: Pembayaran Listrik Sekolah" />
+                        </div>
+
+                        <div className="space-y-2 relative">
+                          <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Kode Rekening Belanja (Juknis 2026)</label>
+                          <div 
+                            onClick={() => setIsAccountPickerOpen(!isAccountPickerOpen)}
+                            className={`w-full px-6 py-4 bg-slate-50 border rounded-2xl cursor-pointer flex justify-between items-center transition-all ${selectedAccount ? 'border-indigo-200 bg-indigo-50/20' : 'border-transparent'}`}
+                          >
+                            {selectedAccount ? (
+                              <div className="flex flex-col">
+                                <span className="text-[9px] font-black text-indigo-500 uppercase">{selectedAccount.code}</span>
+                                <span className="text-sm font-black text-slate-800">{selectedAccount.label}</span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 font-bold">Pilih Kode Rekening...</span>
+                            )}
+                            <Tag className={selectedAccount ? 'text-indigo-500' : 'text-slate-300'} size={18} />
+                          </div>
+
+                          {isAccountPickerOpen && (
+                            <div className="absolute z-[60] top-full mt-2 left-0 right-0 bg-white rounded-3xl shadow-2xl border border-slate-100 p-4 animate-fade-in overflow-hidden max-h-[400px] flex flex-col">
+                              <div className="relative mb-4 shrink-0">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                <input autoFocus className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl outline-none font-bold text-sm" placeholder="Cari kode atau nama rekening..." value={searchAccount} onChange={(e) => setSearchAccount(e.target.value)} />
+                                {searchAccount && <button onClick={() => setSearchAccount('')} className="absolute right-4 top-1/2 -translate-y-1/2"><X size={14} className="text-slate-300" /></button>}
+                              </div>
+                              <div className="overflow-y-auto space-y-1 pr-2">
+                                {filteredAccountCodes.map((acc) => (
+                                  <button key={acc.code} type="button" onClick={() => { setSelectedAccount({code: acc.code, label: acc.label}); setIsAccountPickerOpen(false); }} className={`w-full p-4 rounded-2xl text-left flex justify-between items-center transition-all hover:bg-slate-50 group ${selectedAccount?.code === acc.code ? 'bg-indigo-50 border-indigo-100 border' : 'border border-transparent'}`}>
+                                    <div><p className="text-[10px] font-black text-indigo-400">{acc.code}</p><p className="text-sm font-black text-slate-700">{acc.label}</p></div>
+                                    <span className="text-[8px] font-black px-2 py-0.5 rounded bg-slate-100 text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-colors">{acc.category}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="grid grid-cols-1 gap-4">
+                          <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Standar SNP</label>
+                          <select name="category" defaultValue={editingItem?.category || SNP.Sarpras} className="w-full px-6 py-4 bg-slate-50 border border-transparent focus:border-indigo-100 rounded-2xl font-bold">
+                            {Object.values(SNP).map(v => <option key={v} value={v}>{v}</option>)}
+                          </select>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Volume</label>
+                            <input name="quantity" type="number" defaultValue={editingItem?.quantity || 1} className="w-full px-6 py-4 bg-slate-50 border border-transparent focus:border-indigo-100 rounded-2xl font-bold" />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Satuan</label>
+                            <input name="unit" defaultValue={editingItem?.unit || 'Unit'} className="w-full px-6 py-4 bg-slate-50 border border-transparent focus:border-indigo-100 rounded-2xl font-bold" />
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Harga Satuan</label>
+                          <div className="relative">
+                            <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-indigo-400">Rp</span>
+                            <input name="price" type="number" defaultValue={editingItem?.price || ''} required className="w-full pl-14 pr-6 py-6 bg-indigo-50 border border-indigo-100 rounded-2xl text-2xl font-black text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" placeholder="0" />
+                          </div>
+                        </div>
+                      </div>
+
                       <button type="submit" className="w-full bg-indigo-600 text-white font-black py-6 rounded-3xl shadow-xl flex items-center justify-center gap-3">
-                        <Save size={24} /> {editingItem ? 'Perbarui Anggaran' : 'Simpan Anggaran'}
+                        <Save size={24} /> 
+                        {editingItem ? 'Perbarui Anggaran' : 'Simpan Anggaran'}
                       </button>
                     </form>
                   </div>
                 </div>
+                
                 <div className="xl:col-span-7 bg-white rounded-[48px] border border-slate-100 overflow-hidden shadow-sm flex flex-col">
-                  {/* ... items list ... */}
+                  <div className="p-8 border-b bg-slate-50/20 flex justify-between items-center">
+                    <h3 className="text-2xl font-black">Histori Perencanaan</h3>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{items.length} Entri</div>
+                  </div>
+                  <div className="divide-y max-h-[700px] overflow-y-auto">
+                    {items.length === 0 ? (
+                      <div className="p-20 text-center opacity-20 font-black uppercase text-sm">Belum ada data perencanaan</div>
+                    ) : (
+                      [...items].reverse().map((item) => (
+                        <div key={item.id} className="p-8 flex justify-between items-center group hover:bg-slate-50 transition-all">
+                          <div className="flex gap-6 items-center">
+                            <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center font-black relative overflow-hidden shrink-0">
+                              <span className="relative z-10">{item.month.substring(0, 3)}</span>
+                              <div className="absolute inset-0 bg-indigo-500/5 rotate-12 scale-150" />
+                            </div>
+                            <div>
+                              <p className="font-black text-slate-900 text-lg leading-tight">{item.name}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[9px] font-black px-2 py-0.5 bg-slate-100 text-slate-500 rounded border uppercase tracking-widest flex items-center gap-1">
+                                  <Tag size={10} /> {item.accountCode}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-6">
+                             <div className="text-right">
+                                <p className="font-black text-lg text-slate-800">{formatIDR(item.total)}</p>
+                             </div>
+                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                               <button onClick={() => setEditingItem(item)} className="p-3 bg-indigo-50 text-indigo-600 rounded-xl"><Pencil size={18} /></button>
+                               <button onClick={() => removeItem(item.id)} className="p-3 bg-rose-50 text-rose-600 rounded-xl"><Trash2 size={18} /></button>
+                             </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             )}
 
+            {/* TAB: SPJ */}
+            {activeTab === 'spj' && (
+              <div className="space-y-10 animate-fade-in">
+                {selectedSPJId && activeSPJs[selectedSPJId] ? (
+                  <div className="bg-white p-12 rounded-[56px] border border-slate-100 shadow-xl">
+                    <button onClick={() => setSelectedSPJId(null)} className="flex items-center gap-2 text-slate-400 hover:text-indigo-600 font-bold mb-8">
+                      <ArrowLeft size={16} /> Kembali
+                    </button>
+                    <h3 className="text-3xl font-black mb-6">{items.find(i => i.id === selectedSPJId)?.name}</h3>
+                    <div className="space-y-4">
+                      {activeSPJs[selectedSPJId].checklist.map(ev => (
+                        <div key={ev.id} onClick={() => toggleChecklistItem(selectedSPJId, ev.id)} className={`p-6 rounded-3xl border flex items-center justify-between cursor-pointer ${ev.status === 'ready' ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-100'}`}>
+                          <div className="flex items-center gap-4">
+                            {ev.status === 'ready' ? <CheckCircle className="text-emerald-500" /> : <div className="w-6 h-6 rounded-lg bg-white border-2" />}
+                            <div>
+                              <p className="font-black text-sm">{ev.label}</p>
+                              <p className="text-xs text-slate-400">{ev.description}</p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-black uppercase text-slate-400">{ev.type}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-10">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-3xl font-black">Pelaporan SPJ</h3>
+                      <button onClick={() => setIsLinkingModalOpen(true)} className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black">Buat SPJ Baru</button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {Object.entries(activeSPJs).map(([id, spj]) => {
+                        const item = items.find(i => i.id === id);
+                        if (!item) return null;
+                        return (
+                          <div key={id} onClick={() => setSelectedSPJId(id)} className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm cursor-pointer hover:shadow-lg transition-all">
+                            <h4 className="font-black text-lg mb-4">{item.name}</h4>
+                            <div className="w-full bg-slate-100 h-2 rounded-full mb-2">
+                              <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${getSPJProgress(id)}%` }} />
+                            </div>
+                            <p className="text-[10px] font-black uppercase text-indigo-600">{getSPJProgress(id)}% Selesai</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {isLinkingModalOpen && (
+                  <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md">
+                    <div className="bg-white w-full max-w-2xl rounded-[40px] p-10 overflow-hidden flex flex-col max-h-[80vh]">
+                      <div className="flex justify-between items-center mb-8">
+                        <h3 className="text-2xl font-black">Pilih Anggaran</h3>
+                        <button onClick={() => setIsLinkingModalOpen(false)} className="p-2 bg-slate-100 rounded-xl"><X size={20} /></button>
+                      </div>
+                      <div className="overflow-y-auto space-y-4">
+                        {items.map(item => (
+                          <div key={item.id} onClick={() => createSPJForInitem(item)} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 hover:border-indigo-600 cursor-pointer">
+                            <p className="font-black">{item.name}</p>
+                            <p className="text-xs text-slate-400 uppercase font-bold">{item.month} - {formatIDR(item.total)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB: AUDIT AI */}
+            {activeTab === 'analysis' && (
+              <div className="max-w-4xl mx-auto space-y-10 animate-fade-in">
+                <div className="bg-white p-12 rounded-[56px] border border-slate-100 shadow-xl text-center">
+                   <div className="inline-flex p-8 bg-indigo-50 text-indigo-600 rounded-[40px] mb-8"><BrainCircuit size={48} /></div>
+                   <h3 className="text-4xl font-black text-slate-900 mb-4">Audit AI Gemini</h3>
+                   <p className="text-slate-400 font-bold max-w-lg mx-auto mb-10">Menganalisis efisiensi penggunaan dana BOSP berdasarkan SNP.</p>
+                   <button onClick={runAIAnalysis} disabled={isAnalyzing} className="px-12 py-5 bg-slate-900 text-white rounded-[32px] font-black uppercase flex items-center gap-4 mx-auto hover:bg-indigo-600 transition-all">
+                     {isAnalyzing ? <RefreshCw className="animate-spin" /> : <Sparkles />} {isAnalyzing ? "Menganalisis..." : "Jalankan Audit"}
+                   </button>
+                </div>
+                {aiAnalysis && (
+                  <div className="bg-white p-10 rounded-[40px] border border-slate-100 shadow-lg animate-fade-in">
+                    <h4 className="text-2xl font-black mb-6">Hasil Analisis</h4>
+                    <p className="text-slate-600 mb-8">{aiAnalysis.summary}</p>
+                    <div className="space-y-4">
+                      {aiAnalysis.recommendations.map((rec, i) => (
+                        <div key={i} className="flex gap-4 p-4 bg-slate-50 rounded-2xl text-sm font-bold text-slate-700">
+                          <div className="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center shrink-0">{i+1}</div>
+                          {rec}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB: SETTINGS */}
             {activeTab === 'settings' && (
-              <div className="max-w-4xl mx-auto space-y-12 pb-20 animate-fade-in">
-                {/* Profile Section */}
+              <div className="max-w-4xl mx-auto space-y-10 pb-20 animate-fade-in">
                 <div className="bg-white p-12 rounded-[56px] border border-slate-100 shadow-xl">
                   <div className="flex items-center gap-5 mb-12"><div className="p-4 bg-indigo-50 text-indigo-600 rounded-[28px]"><Settings size={32} /></div><h3 className="text-3xl font-black text-slate-900 tracking-tight">Profil Sekolah</h3></div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
                     <div className="space-y-2"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Satdik</label><input value={schoolData.name} onChange={e => setSchoolData({...schoolData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-transparent border rounded-[24px] font-bold" /></div>
                     <div className="space-y-2"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">NPSN</label><input value={schoolData.npsn} onChange={e => setSchoolData({...schoolData, npsn: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-transparent border rounded-[24px] font-bold" /></div>
                   </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+                    <div className="space-y-2"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Pagu BOSP 2026</label><input type="number" value={totalPagu} onChange={e => setTotalPagu(Number(e.target.value))} className="w-full px-8 py-5 bg-indigo-50 border-transparent border focus:bg-white focus:border-indigo-200 rounded-[28px] outline-none text-xl font-black text-indigo-600" /></div>
+                    <div className="space-y-2"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Total Siswa</label><input type="number" value={studentCount} onChange={e => setStudentCount(Number(e.target.value))} className="w-full px-8 py-5 bg-slate-50 border-transparent border focus:bg-white focus:border-indigo-200 rounded-[28px] outline-none text-xl font-bold" /></div>
+                  </div>
                   <button onClick={() => { storageService.saveSettings(schoolData.name, schoolData.npsn, schoolData.address, totalPagu, studentCount); alert('Profil Tersimpan!'); }} className="w-full bg-indigo-600 text-white font-black py-6 rounded-[32px] hover:bg-indigo-700 shadow-2xl flex items-center justify-center gap-4"><Save size={24} /> Simpan Profil</button>
                 </div>
 
-                {/* Cloud Connection Section */}
                 <div className="bg-slate-900 p-12 rounded-[56px] shadow-2xl relative overflow-hidden group">
-                   <div className="absolute top-0 right-0 p-12 opacity-5 group-hover:opacity-10 transition-opacity">
-                      <Cloud size={200} className="text-white" />
-                   </div>
                    <div className="relative z-10">
                       <div className="flex items-center gap-5 mb-8">
-                         <div className="p-4 bg-indigo-500/20 text-indigo-400 rounded-[28px] border border-indigo-500/30">
-                            <Database size={32} />
-                         </div>
-                         <div>
-                            <h3 className="text-2xl font-black text-white">Hubungkan ke Supabase Cloud</h3>
-                            <p className="text-slate-400 font-bold text-sm">Amankan data Anda di cloud agar tidak hilang saat refresh.</p>
-                         </div>
+                         <div className="p-4 bg-indigo-500/20 text-indigo-400 rounded-[28px] border border-indigo-500/30"><Database size={32} /></div>
+                         <div><h3 className="text-2xl font-black text-white">Panduan Supabase Cloud</h3><p className="text-slate-400 font-bold text-sm">Amankan data Anda agar tidak hilang saat refresh.</p></div>
                       </div>
-
                       <div className="space-y-6">
                          <div className="p-8 bg-black/40 rounded-[32px] border border-white/10">
-                            <h4 className="flex items-center gap-3 text-amber-400 font-black text-xs uppercase tracking-widest mb-6">
-                               <Terminal size={16} /> Langkah Konfigurasi Tabel
-                            </h4>
-                            <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-                               Aplikasi ini sudah mendukung sinkronisasi Supabase. Pastikan Anda telah membuat tabel berikut di dashboard Supabase Anda (SQL Editor):
-                            </p>
+                            <h4 className="flex items-center gap-3 text-amber-400 font-black text-xs uppercase tracking-widest mb-6"><Terminal size={16} /> SQL Schema</h4>
                             <div className="relative">
-                               <pre className="p-6 bg-slate-950 rounded-2xl text-[10px] font-mono text-indigo-300 overflow-x-auto border border-indigo-500/20 max-h-[250px] scroll-thin">
-                                  {SQL_SCHEMA}
-                               </pre>
-                               <button 
-                                onClick={() => { navigator.clipboard.writeText(SQL_SCHEMA); alert('Schema disalin!'); }}
-                                className="absolute top-4 right-4 p-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
-                               >
-                                  <ClipboardList size={14} />
-                               </button>
+                               <pre className="p-6 bg-slate-950 rounded-2xl text-[10px] font-mono text-indigo-300 overflow-x-auto border border-indigo-500/20 max-h-[200px]">{SQL_SCHEMA}</pre>
+                               <button onClick={() => { navigator.clipboard.writeText(SQL_SCHEMA); alert('Schema disalin!'); }} className="absolute top-4 right-4 p-2 bg-indigo-600 text-white rounded-lg"><ClipboardList size={14} /></button>
                             </div>
-                         </div>
-
-                         <div className="flex items-center gap-4 p-6 bg-indigo-500/10 border border-indigo-500/20 rounded-[28px]">
-                            <Info className="text-indigo-400 shrink-0" size={20} />
-                            <p className="text-xs text-indigo-200 font-medium">
-                               Setelah tabel dibuat, aplikasi akan otomatis mendeteksi koneksi dan mensinkronisasi data lokal ke cloud secara real-time.
-                            </p>
                          </div>
                       </div>
                    </div>
