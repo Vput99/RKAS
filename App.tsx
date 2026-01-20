@@ -472,7 +472,7 @@ const App: React.FC = () => {
                         <div className="text-right">
                             <p className="font-black text-slate-800">{formatIDR(item.total)}</p>
                             {item.realization && item.realization > 0 && (
-                            <span className="text-[8px] font-black bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full uppercase tracking-tighter shadow-sm">Realized</span>
+                            <span className="text-[8px] font-black bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full uppercase tracking-tighter shadow-sm">Sudah Realisasi</span>
                             )}
                         </div>
                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
