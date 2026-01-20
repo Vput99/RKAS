@@ -15,7 +15,6 @@ import {
 import { SNP, BudgetItem, AIAnalysisResponse, SPJRecommendation, EvidenceItem } from './types';
 import { analyzeBudget, getSPJRecommendations } from './services/geminiService';
 import { storageService } from './services/storageService';
-import { isSupabaseConfigured } from './services/supabaseClient';
 import { StatCard } from './components/StatCard';
 
 const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -45,7 +44,7 @@ const App: React.FC = () => {
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // Realization & Reallocation State
+  // Realization State
   const [realizationInput, setRealizationInput] = useState<string>("");
   const [prefilledPlanner, setPrefilledPlanner] = useState<{name: string, price: number} | null>(null);
 
@@ -264,7 +263,6 @@ const App: React.FC = () => {
         </nav>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 p-8 lg:p-14 overflow-y-auto">
         <header className="mb-14 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print">
           <div>
@@ -354,17 +352,6 @@ const App: React.FC = () => {
                   )}
                 </div>
 
-                {editingItem && (
-                   <div className="mb-8 p-6 bg-amber-50 border border-amber-100 rounded-[32px] flex items-start gap-4 animate-fade-in shadow-sm">
-                    <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-lg shadow-amber-200"><Pencil size={20}/></div>
-                    <div>
-                      <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Mode Perubahan Data</p>
-                      <p className="text-xs font-bold text-slate-600 leading-snug">Sedang mengedit: {editingItem.name}</p>
-                      <button onClick={cancelEdit} className="text-[9px] font-black text-amber-600 uppercase mt-2 hover:underline">Batal Edit</button>
-                    </div>
-                  </div>
-                )}
-
                 <form onSubmit={handleSubmitPlanner} className="space-y-8">
                   <div className="space-y-4">
                     <div className="flex justify-between items-center mb-1">
@@ -436,7 +423,7 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="space-y-3">
-                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Pagu Anggaran (per Bulan)</label>
+                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Pagu Anggaran</label>
                     <div className="relative">
                       <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-indigo-400">Rp</span>
                       <input name="price" type="number" required defaultValue={editingItem?.price || prefilledPlanner?.price || ""} className="w-full pl-14 pr-6 py-6 bg-indigo-50 border-indigo-100 border rounded-3xl text-2xl font-black text-indigo-600 outline-none" />
@@ -462,7 +449,7 @@ const App: React.FC = () => {
                   [...items].reverse().map(item => (
                     <div key={item.id} className={`p-8 hover:bg-slate-50 transition-all flex justify-between items-center group ${editingItem?.id === item.id ? 'bg-amber-50/50' : ''}`}>
                       <div className="flex gap-6 items-center">
-                        <div className={`w-14 h-14 bg-white border border-slate-100 ${editingItem?.id === item.id ? 'text-amber-600 border-amber-200' : 'text-indigo-600'} rounded-2xl flex items-center justify-center font-black shrink-0 text-[10px] uppercase shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all`}>{item.month.substring(0,3)}</div>
+                        <div className={`w-14 h-14 bg-white border border-slate-100 ${editingItem?.id === item.id ? 'text-amber-600 border-amber-200' : 'text-indigo-600'} rounded-2xl flex items-center justify-center font-black shrink-0 text-[10px] uppercase shadow-sm`}>{item.month.substring(0,3)}</div>
                         <div>
                           <p className="font-black text-slate-900 leading-tight">{item.name}</p>
                           <p className="text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-wider">{item.accountCode}</p>
@@ -476,20 +463,8 @@ const App: React.FC = () => {
                             )}
                         </div>
                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
-                                onClick={() => startEdit(item)} 
-                                className="p-3 bg-white border border-slate-100 text-amber-500 rounded-2xl hover:bg-amber-50 hover:border-amber-200 transition-all shadow-sm"
-                                title="Edit"
-                            >
-                                <Pencil size={18} />
-                            </button>
-                            <button 
-                                onClick={() => handleDeleteItem(item.id)} 
-                                className="p-3 bg-white border border-slate-100 text-rose-500 rounded-2xl hover:bg-rose-50 hover:border-rose-200 transition-all shadow-sm"
-                                title="Hapus"
-                            >
-                                <Trash2 size={18} />
-                            </button>
+                            <button onClick={() => startEdit(item)} className="p-3 bg-white border border-slate-100 text-amber-500 rounded-2xl hover:bg-amber-50 shadow-sm"><Pencil size={18} /></button>
+                            <button onClick={() => handleDeleteItem(item.id)} className="p-3 bg-white border border-slate-100 text-rose-500 rounded-2xl hover:bg-rose-50 shadow-sm"><Trash2 size={18} /></button>
                         </div>
                       </div>
                     </div>
@@ -505,8 +480,7 @@ const App: React.FC = () => {
              <div className="bg-white p-14 rounded-[64px] border border-slate-100 shadow-xl">
                 <div className="inline-flex p-10 bg-indigo-50 text-indigo-600 rounded-[48px] mb-10 shadow-lg shadow-indigo-100/50"><BrainCircuit size={64} /></div>
                 <h3 className="text-4xl font-black text-slate-900 mb-6 tracking-tight">Audit Perencanaan AI</h3>
-                <p className="text-slate-400 font-bold max-w-lg mx-auto mb-12 leading-relaxed">Panggil asisten auditor AI untuk menganalisis RKAS Anda. AI akan mengevaluasi kewajaran harga, kepatuhan juknis, dan efisiensi anggaran secara profesional.</p>
-                <button onClick={runAudit} disabled={isAnalyzing} className="px-14 py-6 bg-slate-950 text-white rounded-[32px] font-black uppercase text-xs tracking-[0.2em] shadow-2xl flex items-center gap-4 mx-auto hover:bg-indigo-600 transition-all hover:scale-105 active:scale-95 disabled:opacity-50">
+                <button onClick={runAudit} disabled={isAnalyzing} className="px-14 py-6 bg-slate-950 text-white rounded-[32px] font-black uppercase text-xs tracking-[0.2em] shadow-2xl flex items-center gap-4 mx-auto hover:bg-indigo-600 transition-all disabled:opacity-50">
                   {isAnalyzing ? <Loader2 className="animate-spin" size={20} /> : <Sparkles size={20} />} 
                   {isAnalyzing ? "PROSES AUDIT..." : "JALANKAN AUDIT SEKARANG"}
                 </button>
@@ -516,16 +490,13 @@ const App: React.FC = () => {
                <div className="bg-white p-14 rounded-[56px] border border-slate-100 shadow-lg text-left animate-fade-in">
                   <div className="flex justify-between items-center mb-10">
                      <h4 className="text-2xl font-black text-slate-900">Hasil Audit Auditor AI</h4>
-                     <span className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm ${aiAnalysis.riskAssessment === 'High' ? 'bg-rose-50 text-rose-600 border border-rose-100' : aiAnalysis.riskAssessment === 'Medium' ? 'bg-amber-50 text-amber-600 border border-amber-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
-                       Risiko Audit: {aiAnalysis.riskAssessment}
-                     </span>
+                     <span className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm ${aiAnalysis.riskAssessment === 'High' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>Risiko Audit: {aiAnalysis.riskAssessment}</span>
                   </div>
                   <div className="p-8 bg-slate-50 rounded-[40px] mb-12 italic font-bold text-slate-600 border border-slate-100 leading-relaxed tracking-tight text-lg">"{aiAnalysis.summary}"</div>
                   <div className="space-y-4">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 border-b pb-2">Butir Rekomendasi</p>
                     {aiAnalysis.recommendations.map((rec, i) => (
-                      <div key={i} className="flex gap-6 p-8 bg-white border border-slate-100 rounded-[32px] font-black text-slate-700 hover:bg-indigo-50 transition-all shadow-sm group">
-                        <div className="w-10 h-10 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-indigo-100 group-hover:scale-110 transition-transform">{i+1}</div>
+                      <div key={i} className="flex gap-6 p-8 bg-white border border-slate-100 rounded-[32px] font-black text-slate-700 shadow-sm">
+                        <div className="w-10 h-10 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shrink-0">{i+1}</div>
                         <span className="text-sm leading-relaxed">{rec}</span>
                       </div>
                     ))}
@@ -540,68 +511,39 @@ const App: React.FC = () => {
             {selectedSPJId && activeSPJs[selectedSPJId] ? (
               <div className="max-w-5xl mx-auto space-y-10">
                 <div className="flex justify-between items-center no-print">
-                    <button onClick={() => setSelectedSPJId(null)} className="flex items-center gap-3 font-black text-sm text-slate-400 hover:text-indigo-600 transition-colors">
-                        <ArrowLeft size={18} /> Kembali ke Daftar Realisasi
-                    </button>
-                    <button onClick={() => window.print()} className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase flex items-center gap-3 shadow-xl hover:bg-slate-800 transition-all active:scale-95">
-                        <Printer size={16}/> Cetak Checklist SPJ
-                    </button>
+                    <button onClick={() => setSelectedSPJId(null)} className="flex items-center gap-3 font-black text-sm text-slate-400 hover:text-indigo-600 transition-colors"><ArrowLeft size={18} /> Kembali</button>
+                    <button onClick={() => window.print()} className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase flex items-center gap-3 shadow-xl hover:bg-slate-800 transition-all"><Printer size={16}/> Cetak SPJ</button>
                 </div>
 
                 <div className="bg-white p-14 rounded-[64px] border border-slate-100 shadow-2xl relative">
                   <div className="mb-14 grid grid-cols-1 md:grid-cols-2 gap-12 border-b pb-14 border-slate-100">
                     <div>
                       <h3 className="text-3xl font-black text-slate-900 mb-3">{items.find(i => i.id === selectedSPJId)?.name}</h3>
-                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Pagu Terencana: {formatIDR(items.find(i => i.id === selectedSPJId)?.total || 0)}</p>
-                      <div className="mt-8 flex gap-4 no-print">
-                         <div className="px-4 py-2 bg-indigo-50 rounded-xl text-[10px] font-black text-indigo-600 uppercase tracking-tighter border border-indigo-100">BOS Reguler</div>
-                         <div className="px-4 py-2 bg-slate-50 rounded-xl text-[10px] font-black text-slate-400 uppercase tracking-tighter border border-slate-100">{items.find(i => i.id === selectedSPJId)?.accountCode}</div>
-                      </div>
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest">RKAS: {formatIDR(items.find(i => i.id === selectedSPJId)?.total || 0)}</p>
                     </div>
                     
                     <div className="flex flex-col gap-6 no-print">
                       <div className="p-8 bg-indigo-50 border border-indigo-100 rounded-[40px] shadow-sm">
-                        <label className="text-[10px] font-black text-indigo-600 uppercase mb-4 block flex items-center gap-2"><ArrowDownCircle size={14} /> Realisasi Pengeluaran Nyata</label>
+                        <label className="text-[10px] font-black text-indigo-600 uppercase mb-4 block flex items-center gap-2">Realisasi Pengeluaran</label>
                         <div className="relative">
                            <span className="absolute left-0 top-1/2 -translate-y-1/2 font-black text-indigo-400 text-xl">Rp</span>
-                           <input type="number" value={realizationInput} onChange={(e) => setRealizationInput(e.target.value)} className="w-full pl-12 bg-transparent border-b-2 border-indigo-200 outline-none font-black text-3xl text-indigo-700 py-2 focus:border-indigo-600 transition-colors" />
+                           <input type="number" value={realizationInput} onChange={(e) => setRealizationInput(e.target.value)} className="w-full pl-12 bg-transparent border-b-2 border-indigo-200 outline-none font-black text-3xl text-indigo-700 py-2" />
                         </div>
-                        <button onClick={handleSaveRealization} className="mt-6 w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">Simpan Laporan Realisasi</button>
+                        <button onClick={handleSaveRealization} className="mt-6 w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase shadow-lg shadow-indigo-100">Simpan Realisasi</button>
                       </div>
-
-                      {Number(realizationInput) > 0 && (items.find(i => i.id === selectedSPJId)?.total || 0) > Number(realizationInput) && (
-                        <div className="p-8 rounded-[40px] border border-emerald-100 bg-emerald-50 flex flex-col gap-6 animate-fade-in shadow-sm">
-                           <div className="flex items-center justify-between">
-                              <div>
-                                 <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Potensi Sisa Anggaran (SiLPA)</p>
-                                 <p className="font-black text-3xl text-emerald-600">{formatIDR((items.find(i => i.id === selectedSPJId)?.total || 0) - Number(realizationInput))}</p>
-                              </div>
-                              <div className="p-3 bg-white rounded-2xl shadow-sm"><Info size={24} className="text-emerald-500" /></div>
-                           </div>
-                           <button 
-                             onClick={() => handleReallocate(items.find(i => i.id === selectedSPJId)?.name || "", (items.find(i => i.id === selectedSPJId)?.total || 0) - Number(realizationInput))}
-                             className="w-full py-4 bg-white border border-emerald-200 text-emerald-600 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-3 hover:bg-emerald-600 hover:text-white transition-all shadow-md active:scale-95"
-                           >
-                             <ArrowUpRight size={14} /> Pindahkan Sisa ke Anggaran Lain
-                           </button>
-                        </div>
-                      )}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                     <div className="lg:col-span-2 space-y-4">
-                        <div className="flex items-center justify-between border-b pb-4 mb-4">
-                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Dokumen Kelengkapan SPJ</p>
-                            <span className="text-[9px] font-black bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full uppercase tracking-tighter">Juknis BOSP 2026</span>
-                        </div>
+                        <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Dokumen Kelengkapan SPJ Digital</p>
                         {activeSPJs[selectedSPJId].checklist.map(ev => (
                         <div key={ev.id} onClick={() => {
                             if (!selectedSPJId) return;
                             const current = activeSPJs[selectedSPJId];
                             if (!current) return;
                             
-                            const updatedChecklist = current.checklist.map((e: EvidenceItem) => 
+                            const updatedChecklist: EvidenceItem[] = current.checklist.map((e: EvidenceItem) => 
                               e.id === ev.id ? { ...e, status: (e.status === 'ready' ? 'pending' : 'ready') as 'pending' | 'ready' } : e
                             );
                             
@@ -612,44 +554,27 @@ const App: React.FC = () => {
                                 checklist: updatedChecklist 
                               } 
                             }));
-                        }} className={`p-6 rounded-[32px] border flex items-center justify-between cursor-pointer transition-all ${ev.status === 'ready' ? 'bg-emerald-50 border-emerald-100' : 'bg-white border-slate-100 hover:border-indigo-200 shadow-sm'}`}>
+                        }} className={`p-6 rounded-[32px] border flex items-center justify-between cursor-pointer transition-all ${ev.status === 'ready' ? 'bg-emerald-50 border-emerald-100' : 'bg-white border-slate-100'}`}>
                             <div className="flex items-center gap-6">
-                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${ev.status === 'ready' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-slate-50 border text-slate-200'} transition-all`}>{ev.status === 'ready' ? <CheckCircle size={20} /> : <CircleDashed size={20}/>}</div>
+                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${ev.status === 'ready' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-slate-50 border text-slate-200'}`}>{ev.status === 'ready' ? <CheckCircle size={20} /> : <CircleDashed size={20}/>}</div>
                             <div>
                                 <p className={`font-black text-sm ${ev.status === 'ready' ? 'line-through opacity-40 text-slate-400' : 'text-slate-700'}`}>{ev.label}</p>
                                 <p className="text-[10px] text-slate-400 font-bold mt-0.5">{ev.description}</p>
                             </div>
                             </div>
-                            <span className="text-[8px] font-black px-3 py-1 bg-slate-50 rounded-full text-slate-400 uppercase border tracking-tighter shadow-sm">{ev.type}</span>
+                            <span className="text-[8px] font-black px-3 py-1 bg-slate-50 rounded-full text-slate-400 uppercase border">{ev.type}</span>
                         </div>
                         ))}
                     </div>
 
                     <div className="space-y-8">
                         <div className="bg-slate-50 p-8 rounded-[40px] border border-slate-100">
-                            <div className="flex items-center gap-3 mb-4 text-indigo-600">
-                                <ShieldCheck size={20} />
-                                <h4 className="text-[10px] font-black uppercase tracking-widest">Dasar Hukum</h4>
-                            </div>
-                            <p className="text-xs font-bold text-slate-600 leading-relaxed italic">
-                                {activeSPJs[selectedSPJId].legalBasis}
-                            </p>
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 mb-4 flex items-center gap-2"><ShieldCheck size={16}/> Dasar Hukum</h4>
+                            <p className="text-xs font-bold text-slate-600 leading-relaxed italic">{activeSPJs[selectedSPJId].legalBasis}</p>
                         </div>
-
                         <div className="bg-amber-50 p-8 rounded-[40px] border border-amber-100">
-                            <div className="flex items-center gap-3 mb-4 text-amber-600">
-                                <Sparkles size={20} />
-                                <h4 className="text-[10px] font-black uppercase tracking-widest">Tips Auditor</h4>
-                            </div>
-                            <p className="text-xs font-bold text-slate-600 leading-relaxed">
-                                {activeSPJs[selectedSPJId].tips}
-                            </p>
-                        </div>
-
-                        <div className="p-8 rounded-[40px] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center space-y-4 no-print">
-                            <Receipt size={32} className="text-slate-300" />
-                            <p className="text-[10px] font-black text-slate-400 uppercase leading-relaxed">Upload scan berkas fisik (Opsional)</p>
-                            <button className="px-6 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-400 uppercase tracking-widest hover:bg-slate-50 transition-all">Pilih File</button>
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-4 flex items-center gap-2"><Sparkles size={16}/> Tips Auditor</h4>
+                            <p className="text-xs font-bold text-slate-600 leading-relaxed">{activeSPJs[selectedSPJId].tips}</p>
                         </div>
                     </div>
                   </div>
@@ -673,20 +598,17 @@ const App: React.FC = () => {
                     return (
                       <div key={item.id} className="bg-white p-10 rounded-[56px] border border-slate-100 shadow-sm hover:shadow-2xl transition-all flex flex-col h-full group">
                         <div className="flex justify-between mb-8">
-                           <div className={`p-4 rounded-2xl ${isRealized ? 'bg-emerald-50 text-emerald-500' : 'bg-slate-50 text-slate-300'} transition-colors shadow-sm`}>
+                           <div className={`p-4 rounded-2xl ${isRealized ? 'bg-emerald-50 text-emerald-500' : 'bg-slate-50 text-slate-300'} shadow-sm`}>
                              {isRealized ? <FileCheck size={24} /> : <CircleDashed size={24} />}
                            </div>
-                           {isRealized && item.total > item.realization! && (
-                              <span className="bg-emerald-100 text-emerald-600 text-[9px] font-black px-3 py-1 rounded-full uppercase flex items-center gap-1 shadow-sm border border-emerald-200"><Coins size={10}/> Efisiensi</span>
-                           )}
                         </div>
                         <h4 className="font-black text-xl text-slate-900 mb-2 leading-tight flex-grow">{item.name}</h4>
                         <div className="space-y-1 mb-8">
-                           <p className="text-[10px] font-black text-slate-400 uppercase">Pagu RKAS: {formatIDR(item.total)}</p>
+                           <p className="text-[10px] font-black text-slate-400 uppercase">Pagu: {formatIDR(item.total)}</p>
                            {isRealized && <p className="text-lg font-black text-emerald-600">Terpakai: {formatIDR(item.realization!)}</p>}
                         </div>
-                        <button onClick={() => triggerSPJ(item)} className={`w-full py-5 rounded-[28px] font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${spj ? (isRealized ? 'bg-slate-900 text-white shadow-xl shadow-slate-200' : 'bg-indigo-600 text-white shadow-xl shadow-indigo-100') : 'bg-white border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600'} hover:scale-105 active:scale-95`}>
-                          {spj ? (isRealized ? "Edit Laporan" : "Update Realisasi") : <><Sparkles size={16} /> Aktifkan Laporan</>}
+                        <button onClick={() => triggerSPJ(item)} className={`w-full py-5 rounded-[28px] font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${spj ? (isRealized ? 'bg-slate-900 text-white' : 'bg-indigo-600 text-white') : 'bg-white border-2 border-indigo-100 text-indigo-600'}`}>
+                          {spj ? (isRealized ? "Edit Laporan" : "Update Realisasi") : "Aktifkan Laporan"}
                         </button>
                       </div>
                     );
@@ -700,36 +622,26 @@ const App: React.FC = () => {
         )}
         
         {activeTab === 'settings' && (
-          <div className="max-w-4xl mx-auto space-y-14 animate-fade-in pb-20">
+          <div className="max-w-4xl mx-auto animate-fade-in pb-20">
              <div className="bg-white p-14 rounded-[64px] border border-slate-100 shadow-xl">
-                <div className="flex items-center gap-6 mb-12">
-                   <div className="p-4 bg-indigo-50 text-indigo-600 rounded-3xl border border-indigo-100 shadow-sm"><Settings size={36} /></div>
-                   <h3 className="text-3xl font-black text-slate-900 tracking-tight">Konfigurasi Satdik</h3>
-                </div>
+                <h3 className="text-3xl font-black text-slate-900 tracking-tight mb-12">Konfigurasi Satdik</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
                    <div className="space-y-3"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Sekolah</label>
-                   <input value={schoolData.name} onChange={e=>setSchoolData({...schoolData, name: e.target.value})} className="w-full px-6 py-5 bg-slate-50 border-transparent border rounded-3xl font-bold outline-none focus:border-indigo-100 focus:bg-white transition-all shadow-sm" /></div>
+                   <input value={schoolData.name} onChange={e=>setSchoolData({...schoolData, name: e.target.value})} className="w-full px-6 py-5 bg-slate-50 border rounded-3xl font-bold outline-none" /></div>
                    <div className="space-y-3"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">NPSN</label>
-                   <input value={schoolData.npsn} onChange={e=>setSchoolData({...schoolData, npsn: e.target.value})} className="w-full px-6 py-5 bg-slate-50 border-transparent border rounded-3xl font-bold outline-none focus:border-indigo-100 focus:bg-white transition-all shadow-sm" /></div>
+                   <input value={schoolData.npsn} onChange={e=>setSchoolData({...schoolData, npsn: e.target.value})} className="w-full px-6 py-5 bg-slate-50 border rounded-3xl font-bold outline-none" /></div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                   <div className="space-y-3"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Pagu BOSP 2026</label>
-                   <input type="number" value={totalPagu} onChange={e=>setTotalPagu(Number(e.target.value))} className="w-full px-6 py-5 bg-indigo-50 border-indigo-100 border rounded-3xl font-black text-xl text-indigo-600 outline-none shadow-sm" /></div>
-                   <div className="space-y-3"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Jumlah Siswa</label>
-                   <input type="number" value={studentCount} onChange={e=>setStudentCount(Number(e.target.value))} className="w-full px-6 py-5 bg-slate-50 border-transparent border rounded-3xl font-black text-xl outline-none focus:border-indigo-100 shadow-sm" /></div>
-                </div>
-                <button onClick={async () => { await storageService.saveSettings(schoolData.name, schoolData.npsn, schoolData.address, totalPagu, studentCount); alert('Profil Satdik Berhasil Diperbarui!'); }} className="w-full bg-slate-950 text-white py-6 rounded-[32px] font-black text-sm uppercase tracking-widest shadow-2xl flex items-center justify-center gap-4 hover:bg-indigo-600 transition-all active:scale-95"><Save size={24}/> Simpan Konfigurasi</button>
+                <button onClick={async () => { await storageService.saveSettings(schoolData.name, schoolData.npsn, schoolData.address, totalPagu, studentCount); alert('Profil Satdik Berhasil Diperbarui!'); }} className="w-full bg-slate-950 text-white py-6 rounded-[32px] font-black text-sm uppercase flex items-center justify-center gap-4 transition-all active:scale-95"><Save size={24}/> Simpan Konfigurasi</button>
              </div>
           </div>
         )}
       </main>
 
-      {/* Loading Overlay for SPJ Generation */}
       {isGeneratingSPJ && (
         <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center animate-fade-in p-10 text-center">
-          <div className="w-24 h-24 border-8 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-10 shadow-[0_0_50px_rgba(79,70,229,0.3)]" />
-          <h2 className="text-white text-3xl font-black tracking-tighter mb-4 italic">Kecerdasan Buatan Sedang Bekerja</h2>
-          <p className="text-indigo-300 font-bold uppercase tracking-[0.3em] text-[11px] animate-pulse">Menyiapkan Dokumen & Regulasi BOSP...</p>
+          <div className="w-24 h-24 border-8 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-10" />
+          <h2 className="text-white text-3xl font-black tracking-tighter mb-4">Kecerdasan Buatan Bekerja</h2>
+          <p className="text-indigo-300 font-bold uppercase tracking-[0.3em] text-[11px] animate-pulse">Menyiapkan Dokumen SPJ BOSP 2026...</p>
         </div>
       )}
     </div>
