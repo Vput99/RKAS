@@ -547,12 +547,14 @@ const App: React.FC = () => {
                               e.id === ev.id ? { ...e, status: (e.status === 'ready' ? 'pending' : 'ready') as 'pending' | 'ready' } : e
                             );
                             
+                            const updatedSPJ: SPJRecommendation = {
+                                ...current,
+                                checklist: updatedChecklist
+                            };
+
                             setActiveSPJs(prev => ({ 
                               ...prev, 
-                              [selectedSPJId]: { 
-                                ...current, 
-                                checklist: updatedChecklist 
-                              } 
+                              [selectedSPJId]: updatedSPJ
                             }));
                         }} className={`p-6 rounded-[32px] border flex items-center justify-between cursor-pointer transition-all ${ev.status === 'ready' ? 'bg-emerald-50 border-emerald-100' : 'bg-white border-slate-100'}`}>
                             <div className="flex items-center gap-6">

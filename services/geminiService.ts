@@ -106,7 +106,7 @@ export async function getSPJRecommendations(item: BudgetItem): Promise<SPJRecomm
             legalBasis: { type: Type.STRING },
             tips: { type: Type.STRING }
           },
-          required: ["checklist", "legalBasis", "tips"]
+          required: ["activityId", "checklist", "legalBasis", "tips"]
         }
       }
     });
