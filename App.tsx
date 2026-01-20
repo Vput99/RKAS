@@ -12,7 +12,7 @@ import {
   ResponsiveContainer, XAxis, YAxis, CartesianGrid, 
   Tooltip, BarChart, Bar
 } from 'recharts';
-import { SNP, BudgetItem, AIAnalysisResponse, SPJRecommendation } from './types';
+import { SNP, BudgetItem, AIAnalysisResponse, SPJRecommendation, EvidenceItem } from './types';
 import { analyzeBudget, getSPJRecommendations } from './services/geminiService';
 import { storageService } from './services/storageService';
 import { isSupabaseConfigured } from './services/supabaseClient';
@@ -597,8 +597,21 @@ const App: React.FC = () => {
                         </div>
                         {activeSPJs[selectedSPJId].checklist.map(ev => (
                         <div key={ev.id} onClick={() => {
-                            const updated = activeSPJs[selectedSPJId].checklist.map(e => e.id === ev.id ? { ...e, status: e.status === 'ready' ? 'pending' : 'ready' } : e);
-                            setActiveSPJs(p => ({ ...p, [selectedSPJId]: { ...p[selectedSPJId], checklist: updated } }));
+                            if (!selectedSPJId) return;
+                            const current = activeSPJs[selectedSPJId];
+                            if (!current) return;
+                            
+                            const updatedChecklist = current.checklist.map((e: EvidenceItem) => 
+                              e.id === ev.id ? { ...e, status: (e.status === 'ready' ? 'pending' : 'ready') as 'pending' | 'ready' } : e
+                            );
+                            
+                            setActiveSPJs(prev => ({ 
+                              ...prev, 
+                              [selectedSPJId]: { 
+                                ...current, 
+                                checklist: updatedChecklist 
+                              } 
+                            }));
                         }} className={`p-6 rounded-[32px] border flex items-center justify-between cursor-pointer transition-all ${ev.status === 'ready' ? 'bg-emerald-50 border-emerald-100' : 'bg-white border-slate-100 hover:border-indigo-200 shadow-sm'}`}>
                             <div className="flex items-center gap-6">
                             <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${ev.status === 'ready' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-slate-50 border text-slate-200'} transition-all`}>{ev.status === 'ready' ? <CheckCircle size={20} /> : <CircleDashed size={20}/>}</div>
