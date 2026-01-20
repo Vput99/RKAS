@@ -2,19 +2,36 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { BudgetItem, AIAnalysisResponse, SPJRecommendation } from "../types";
 
+// Fungsi pembantu untuk membersihkan output JSON dari AI
+function cleanJsonString(str: string): string {
+  return str.replace(/```json\n?|```/g, "").trim();
+}
+
 export async function analyzeBudget(items: BudgetItem[], totalBudget: number): Promise<AIAnalysisResponse | null> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
-    Analisis data anggaran RKAS berikut sebagai auditor profesional:
-    Pagu: Rp${totalBudget.toLocaleString('id-ID')}
-    Item: ${JSON.stringify(items)}
-    Berikan analisis JSON: summary (string), recommendations (array of string), riskAssessment (Low/Medium/High).
+    Anda adalah auditor profesional BOSP (Biaya Operasional Satuan Pendidikan) Kemdikbud Ristek.
+    Analisis data anggaran RKAS berikut berdasarkan Juknis BOSP 2026:
+    Total Pagu: Rp${totalBudget.toLocaleString('id-ID')}
+    Daftar Item: ${JSON.stringify(items)}
+    
+    Berikan analisis kritis mengenai:
+    1. Kepatuhan terhadap 8 Standar SNP.
+    2. Efisiensi harga satuan dibandingkan harga pasar.
+    3. Potensi risiko temuan audit (relevansi kegiatan dengan juknis).
+    
+    Output WAJIB dalam format JSON murni:
+    {
+      "summary": "string",
+      "recommendations": ["string"],
+      "riskAssessment": "Low" | "Medium" | "High"
+    }
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-pro-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -23,17 +40,14 @@ export async function analyzeBudget(items: BudgetItem[], totalBudget: number): P
           properties: {
             summary: { type: Type.STRING },
             recommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
-            riskAssessment: { 
-              type: Type.STRING,
-              description: "Must be exactly Low, Medium, or High"
-            }
+            riskAssessment: { type: Type.STRING, enum: ["Low", "Medium", "High"] }
           },
           required: ["summary", "recommendations", "riskAssessment"]
         }
       }
     });
 
-    return JSON.parse(response.text?.trim() || "{}");
+    return JSON.parse(cleanJsonString(response.text || "{}"));
   } catch (error) {
     console.error("AI Analysis failed:", error);
     return null;
@@ -44,18 +58,30 @@ export async function getSPJRecommendations(item: BudgetItem): Promise<SPJRecomm
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
-    Bertindaklah sebagai ahli audit BOSP Kemdikbud.
-    Berikan checklist SPJ berdasarkan JUKNIS BOSP TERBARU untuk kegiatan:
-    Nama: ${item.name}
-    SNP: ${item.category}
-    Nilai: Rp${item.total.toLocaleString('id-ID')}
+    Anda adalah pakar regulasi keuangan sekolah. Buatkan checklist kelengkapan dokumen SPJ Digital sesuai Juknis BOSP 2026 untuk:
+    Kegiatan: ${item.name}
+    Pagu: Rp${item.total.toLocaleString('id-ID')}
+    Kode Rekening: ${item.accountCode}
     
-    Berikan JSON dengan schema yang disediakan. Checklist harus berisi minimal 4 dokumen wajib.
+    Pertimbangkan:
+    - Jika Honor: Perlu Daftar Hadir, SK, SPTJM, Bukti Potong PPh 21.
+    - Jika Barjas/Modal: Perlu Nota SIPLah, Kwitansi, Faktur Pajak (jika kena PPN), BAST, Foto Barang, KIB.
+    - Aturan Non-Tunai: Bukti transfer bank.
+    
+    Output WAJIB JSON murni:
+    {
+      "activityId": "string",
+      "checklist": [
+        { "id": "string", "label": "string", "description": "string", "required": true, "type": "Administrasi|Bukti Bayar|Pajak|Serah Terima" }
+      ],
+      "legalBasis": "Referensi Juknis BOSP 2026 & Aturan Pajak terkait",
+      "tips": "Tips auditor agar SPJ tidak menjadi temuan"
+    }
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -72,22 +98,22 @@ export async function getSPJRecommendations(item: BudgetItem): Promise<SPJRecomm
                   label: { type: Type.STRING },
                   description: { type: Type.STRING },
                   required: { type: Type.BOOLEAN },
-                  type: { type: Type.STRING, description: "receipt, photo, signature, tax, doc" }
+                  type: { type: Type.STRING }
                 },
                 required: ["id", "label", "description", "required", "type"]
               }
             },
-            legalBasis: { type: Type.STRING, description: "Legal basis or regulation" },
-            tips: { type: Type.STRING, description: "Anti-audit finding tips" }
+            legalBasis: { type: Type.STRING },
+            tips: { type: Type.STRING }
           },
           required: ["checklist", "legalBasis", "tips"]
         }
       }
     });
 
-    return JSON.parse(response.text?.trim() || "{}");
+    return JSON.parse(cleanJsonString(response.text || "{}"));
   } catch (error) {
-    console.error("AI SPJ Recommendation failed:", error);
+    console.error("AI SPJ failed:", error);
     return null;
   }
 }

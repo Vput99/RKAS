@@ -19,6 +19,7 @@ export type BudgetItem = {
   unit: string;
   price: number;
   total: number;
+  realization?: number; // Nilai pengeluaran nyata
   source: string;
   month: string;
 };
@@ -28,7 +29,7 @@ export type EvidenceItem = {
   label: string;
   description: string;
   required: boolean;
-  type: string; // 'receipt' | 'photo' | 'signature' | 'tax' | 'doc'
+  type: string; 
   status?: 'pending' | 'ready';
 };
 
