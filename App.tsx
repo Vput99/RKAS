@@ -2,11 +2,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   LayoutDashboard, PlusCircle, ClipboardList, BrainCircuit, Wallet, 
-  TrendingUp, ChevronRight, Receipt, Sparkles, CheckCircle, Coins, 
-  Settings, School, Users, Save, RefreshCw, Calendar, 
-  FileCheck, ArrowLeft, Tag, Search, X, Database, Terminal, CircleDashed,
-  AlertCircle, ArrowDownCircle, Info, ArrowUpRight, Lightbulb, TrendingDown,
-  Loader2, CheckSquare, Square, Pencil, Trash2, Printer, ShieldCheck
+  TrendingUp, TrendingDown, ChevronRight, Receipt, Sparkles, CheckCircle, Coins, 
+  Settings, School, Save, Calendar, 
+  FileCheck, ArrowLeft, Tag, X, Database, CircleDashed,
+  ArrowDownCircle, ShieldCheck, Printer, Pencil, Trash2, Loader2,
+  CheckSquare, Square
 } from 'lucide-react';
 import { 
   ResponsiveContainer, XAxis, YAxis, CartesianGrid, 
@@ -44,11 +44,9 @@ const App: React.FC = () => {
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // Realization State
   const [realizationInput, setRealizationInput] = useState<string>("");
   const [prefilledPlanner, setPrefilledPlanner] = useState<{name: string, price: number} | null>(null);
 
-  // Planner States
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
   const [selectedFormMonths, setSelectedFormMonths] = useState<string[]>(['Januari']);
   const [selectedAccount, setSelectedAccount] = useState<typeof BOSP_ACCOUNT_CODES[0] | null>(null);
@@ -143,7 +141,7 @@ const App: React.FC = () => {
     const price = Number(formData.get('price'));
     const quantity = Number(formData.get('quantity'));
     const name = formData.get('name') as string;
-    const unit = formData.get('unit') as string || 'Unit';
+    const unit = (formData.get('unit') as string) || 'Unit';
 
     if (editingItem) {
         const updated: BudgetItem = {
@@ -162,7 +160,7 @@ const App: React.FC = () => {
         alert("Anggaran berhasil diperbarui!");
     } else {
         const newEntries: BudgetItem[] = selectedFormMonths.map(month => ({
-            id: Math.random().toString(36).substr(2, 9),
+            id: Math.random().toString(36).substring(2, 11),
             name,
             category: SNP.Pembiayaan,
             accountCode: selectedAccount.code,
@@ -234,7 +232,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-[#F8FAFC]">
-      {/* Sidebar */}
       <aside className="w-full lg:w-80 bg-slate-950 text-slate-400 p-10 flex flex-col gap-10 no-print">
         <div className="flex items-center gap-4 mb-6">
           <div className="bg-indigo-600 p-3 rounded-2xl text-white shadow-xl shadow-indigo-500/20"><ClipboardList size={28} /></div>
@@ -319,7 +316,7 @@ const App: React.FC = () => {
               <div className="bg-slate-900 text-white p-10 rounded-[48px] shadow-2xl flex flex-col justify-between">
                 <div>
                    <div className="flex items-center gap-4 mb-8">
-                      <div className="p-4 bg-white/10 rounded-[28px] text-indigo-400"><Lightbulb size={32}/></div>
+                      <div className="p-4 bg-white/10 rounded-[28px] text-indigo-400"><Sparkles size={32}/></div>
                       <h3 className="text-xl font-black">AI Audit Insight</h3>
                    </div>
                    <div className="space-y-6">

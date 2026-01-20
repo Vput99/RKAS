@@ -2,13 +2,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { BudgetItem, AIAnalysisResponse, SPJRecommendation } from "../types";
 
-// Fungsi pembantu untuk membersihkan output JSON dari AI
 function cleanJsonString(str: string): string {
   return str.replace(/```json\n?|```/g, "").trim();
 }
 
 export async function analyzeBudget(items: BudgetItem[], totalBudget: number): Promise<AIAnalysisResponse | null> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = (process.env.API_KEY || "") as string;
+  const ai = new GoogleGenAI({ apiKey });
   
   const prompt = `
     Anda adalah auditor profesional BOSP (Biaya Operasional Satuan Pendidikan) Kemdikbud Ristek.
@@ -55,18 +55,14 @@ export async function analyzeBudget(items: BudgetItem[], totalBudget: number): P
 }
 
 export async function getSPJRecommendations(item: BudgetItem): Promise<SPJRecommendation | null> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = (process.env.API_KEY || "") as string;
+  const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
     Anda adalah pakar regulasi keuangan sekolah. Buatkan checklist kelengkapan dokumen SPJ Digital sesuai Juknis BOSP 2026 untuk:
     Kegiatan: ${item.name}
     Pagu: Rp${item.total.toLocaleString('id-ID')}
     Kode Rekening: ${item.accountCode}
-    
-    Pertimbangkan:
-    - Jika Honor: Perlu Daftar Hadir, SK, SPTJM, Bukti Potong PPh 21.
-    - Jika Barjas/Modal: Perlu Nota SIPLah, Kwitansi, Faktur Pajak (jika kena PPN), BAST, Foto Barang, KIB.
-    - Aturan Non-Tunai: Bukti transfer bank.
     
     Output WAJIB JSON murni:
     {
